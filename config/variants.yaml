@@ -1,0 +1,51 @@
+# Tuning variants: run as --candidate <name>@<variant>; results go to results/<name>@<variant>/.
+# gpt-researcher: env overrides (GPT-Researcher config vars), optional breadth_depth [b, d], report_type.
+#   GPTR_OVERLAY=1 uses the patched package copy (candidates/gpt-researcher/build_overlay.py).
+# nvidia-dra: config overlay deep-merged into candidates/nvidia-dra/config_eval.yml.
+# Rationale per variant: docs/analysis/.
+gpt-researcher:
+  # Config only: longer report target and writer budget, more breadth.
+  cfg:
+    breadth_depth: [4, 2]
+    env:
+      TOTAL_WORDS: 5000
+      SMART_TOKEN_LIMIT: 32000
+  # Same config plus code fixes: original task kept in follow-up queries, learnings survive the
+  # context trim (35k words), writer prompt with coverage checklist and tables.
+  patched:
+    breadth_depth: [4, 2]
+    env:
+      TOTAL_WORDS: 5000
+      SMART_TOKEN_LIMIT: 32000
+      GPTR_OVERLAY: 1
+nvidia-dra:
+  # Token limits only (docs/analysis/nvidia-tokens.md): cap search tool calls per run (default 100 never
+  # binds, task 57 hit 1.83M; max_researcher_model_calls only exists after 2.2.0), smaller search batches (each batch inlines ~17k tokens that are re-sent on every
+  # later call), fewer research queries (default 20). Page text per result stays at 6000 chars because
+  # docs/analysis/nvidia-quality.md shows citations are not evidence-starved.
+  lean:
+    config:
+      functions:
+        deep_research_agent:
+          max_source_tool_batch_size: 2
+          resource_limits:
+            max_research_queries: 8
+            max_source_tool_calls: 24
+  # Same limits plus citation prompts (prompts/cite, built by candidates/nvidia-dra/build_prompts.py):
+  # one citation per claim, exact values only, no citations on the writer's own analysis, one source
+  # plus verbatim quote per research finding.
+  cite:
+    prompts: cite
+    config:
+      functions:
+        deep_research_agent:
+          max_source_tool_batch_size: 2
+          resource_limits:
+            max_research_queries: 8
+            max_source_tool_calls: 24
+research-agent:
+  # v3: fixes from docs/analysis/research-agent-vs-baseline.md + nvidia-vs-research-agent-de.md
+  v3: {}
+  # Smoke tests of the own agent (quick depth).
+  smoke:
+    depth: quick

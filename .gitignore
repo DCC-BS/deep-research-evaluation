@@ -1,0 +1,12 @@
+.env
+results/
+runs/
+logs/
+data/
+vendor/
+__pycache__/
+*.pyc
+.venv/
+candidates/nvidia-dra/generated/
+candidates/gpt-researcher/overlay/
+.claude/

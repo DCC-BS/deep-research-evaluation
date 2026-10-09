@@ -1,0 +1,31 @@
+# Task sets for the evaluation.
+
+drb:
+  # DeepResearch Bench English tasks (ids from vendor/deep_research_bench/data/prompt_data/query.jsonl).
+  # 20 of the 50 English tasks, leaning towards topics close to public administration
+  # (demography, public finance, law, labour market, transport, IT, education).
+  # The OpenRouter budget ($50) does not cover all 50 for four runs.
+  query_file: vendor/deep_research_bench/data/prompt_data/query.jsonl
+  ids: [51, 53, 57, 59, 66, 68, 69, 71, 72, 77, 78, 81, 82, 87, 90, 93, 94, 96, 97, 100]
+  # Two-stage plan: stage 1 for all candidates, stage 2 only for the best two.
+  stage1_ids: [90, 51, 53, 57, 68, 72, 82, 87, 94, 97]
+  stage2_ids: [59, 66, 69, 71, 77, 78, 81, 93, 96, 100]
+  # Tuning subset (from stage 1): 51 = weakest GPT-Researcher RACE and 33% NVIDIA citations,
+  # 57 = NVIDIA 1.83M tokens, 87 = NVIDIA 25% citations. Variants are compared here, then
+  # confirmed on stage 2 (held out).
+  tuning_ids: [51, 57, 87]
+  # Smallest subset for calibration and smoke runs.
+  calibration_ids: [90]
+
+de:
+  file: testsets/de-admin.json
+
+# MCP servers available to candidates for tasks whose "sources" list an mcp:<name>.
+mcp:
+  opencaselaw:
+    url: https://mcp.opencaselaw.ch/
+    # 45 tools are too many for a 31B model; expose a focused subset.
+    allow: [search, fetch, search_laws, get_law, search_legislation, get_legislation, search_decisions, get_erwaegung]
+  data-bs:
+    url: https://mcp.data.bs.ch/mcp
+    allow: [get_datasets, get_dataset, get_records, get_facets]

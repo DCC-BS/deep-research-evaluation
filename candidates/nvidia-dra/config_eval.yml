@@ -1,0 +1,60 @@
+# NVIDIA Deep Researcher Agent 2.2 (ex AI-Q) for the evaluation.
+# Based on frontends/benchmarks/deepresearch_bench/configs/config_deep_research_bench.yml:
+# deep_research_workflow runs the deep agent directly (no intent router, no clarifier).
+# Changes: Gemma via the metering gateway per role; web search through the gateway's
+# Tavily-compatible endpoint (Serper + Firecrawl, same stack as the other candidates);
+# no Google Scholar paper search (not available to the other candidates either).
+
+general:
+  telemetry:
+    logging:
+      console:
+        _type: console
+        level: WARNING
+  use_uvloop: true
+
+llms:
+  # Orchestrator, planner, researcher: Gemma with thinking.
+  gemma_think:
+    _type: openai
+    model_name: gemma-think
+    base_url: http://meter:4000/v1
+    api_key: ${METER_RUN_KEY}
+    max_tokens: 16384
+    num_retries: 3
+  # Writer: Gemma with thinking and a long output budget.
+  gemma_writer:
+    _type: openai
+    model_name: gemma-think
+    base_url: http://meter:4000/v1
+    api_key: ${METER_RUN_KEY}
+    max_tokens: 32768
+    num_retries: 3
+  # Source routing is a small decision step: Gemma without thinking (stands in for Qwen3.5-4B).
+  gemma_fast:
+    _type: openai
+    model_name: gemma-fast
+    base_url: http://meter:4000/v1
+    api_key: ${METER_RUN_KEY}
+    max_tokens: 4096
+    num_retries: 3
+
+functions:
+  advanced_web_search_tool:
+    _type: tavily_web_search
+    max_results: 3
+    advanced_search: true
+    api_base_url: http://meter:4000/tavily
+  deep_research_agent:
+    _type: deep_research_agent
+    orchestrator_llm: gemma_think
+    source_router_llm: gemma_fast
+    researcher_llm: gemma_think
+    planner_llm: gemma_think
+    writer_llm: gemma_writer
+    enable_citation_verification: true
+    tools:
+      - advanced_web_search_tool
+
+workflow:
+  _type: deep_research_workflow

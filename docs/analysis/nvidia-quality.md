@@ -1,0 +1,90 @@
+# NVIDIA Deep Researcher Agent 2.2: quality weaknesses and tuning
+
+Scope: stage-1 DRB run (10 judged tasks: 51 53 57 68 72 82 87 90 94 97; tasks 59/66/69/71 are run but not yet judged). Read-only analysis of `results/`, `logs/search.jsonl`, `gateway/app.py` and the agent source (`agents/deep_researcher/`, `common/citation_verification.py`). No model or service was called. Counts below come from `validated.jsonl` (fact-URL pairs) and `scraped.jsonl` (full judge-side page text).
+
+## Summary
+
+1. The 54.8% citation accuracy is mostly a **writer/notes faithfulness problem, not a missing-evidence problem and not a hallucinated-URL problem**. 247 of 249 cited URLs appeared in the run's own search results, so `enable_citation_verification` never had anything to remove.
+2. Biggest single driver: **stacked citations**. 59% of NVIDIA fact-URL pairs (251/429) come from a sentence cited to two or more URLs (`[12][13][17]`); those pairs are valid 46% of the time, single-URL pairs 67%. GPT-Researcher: 9% multi-URL, 54% vs 82%. If each sentence kept only its best URL, accuracy would rise to about 65% (171 of 263 distinct facts have at least one supporting URL).
+3. Second driver: **whole URLs that support nothing**. 81 of 217 cited URLs (37%) have zero supported facts, holding 30% of facts (GPT-R: 32 of 395, 8%). This points to URL/claim swaps between notes and writer and to the writer attaching citations to its own analysis.
+4. 64 of 429 pairs (15%) are `unknown` (judge could not scrape: ResearchGate, ACM/IEEE/OUP, Reuters, Facebook, academia.edu), against 9 of 710 for GPT-R. Task 87 has 17 unknowns and the lowest accuracy (25%). These are excluded from the rate but cut the effective citation count (20.1 per task vs the 20 gate).
+5. RACE lead comes from structure: the plan's `required_components` and `constraints` turn the prompt's axes into section headings, reports are dense in figures and citations, and there is little filler. GPT-R is longer but drifts off-prompt.
+6. Cost: median 862k tokens per task (868k prompt vs 60k completion) vs 215k for GPT-R, runtime 868 s vs 633 s. Already near the 1M median ceiling, so any change that adds page text must be paid for elsewhere.
+
+## 1. Unsupported citations, classified
+
+Sample: 40 random NVIDIA unsupported pairs (seed 3), read by hand against the cited page text, plus a rule-based pass over all 165 unsupported pairs.
+
+| Class | Hand sample (40) | Rules, all 165 | GPT-R rules, all 146 |
+|---|---|---|---|
+| (a) claim absent from page (specifics invented or from model memory) | 10 | about 60 (low overlap, incl. 2 with numbers missing) | 33 |
+| (b) same sentence is supported by another URL: swapped or stacked citation | 6 | 37 (22%) | 14 (10%) |
+| (c) over-generalised, inferred or recommendation, topic matches but claim not stated | 19 | 41 (+ part of the low-overlap bucket) | 67 (46%) |
+| (d) agent only saw a snippet | 0 provable | not measurable | not measurable |
+| (e) judging artefact (bad scrape, strict judge) | 5 | at most 10 to 15% (heuristic gave 25, spot check of 10 found 1 to 2 real) | up to 22% by the same heuristic |
+
+The rule pass is crude (lexical overlap against the page text), so read it as order of magnitude. The hand sample is the more reliable guide.
+
+Evidence per class (task: claim, page):
+
+- (a) Task 51 nippon.com: "46.5% of all one-person households, compared to 34.9% in 2020"; the page says 44.3% and neither figure appears. Task 94 nature.com s41598-025-29732-6: "Alstom CITYFLO 650 also employs 5G-ready pod radios that reduce trackside equipment footprints by 40%" and "containers orchestrated by Kubernetes ... hours rather than weeks"; the paper is about a different platform. Task 51 gedeth.com: "80 and older ... 7.8% to 15.1%" (neither number on page). Task 94 windriver.com: "Xen ... temporal isolation" (absent). Task 51 dataintelo.com: "Japanese adaptive clothing market USD 0.65 billion", page gives only a global figure. Task 90 finchmccranie.com: "Consumer Expectation Test or the Risk-Utility Test" (neither term on page). Specific numbers and product names are the typical fabrication; since the agent only ever saw the first 6000 characters, anything this specific and absent from the whole page came from model memory or another source.
+- (b) The same sentence appears under two URLs and neither or only one supports it. Task 82: "MITI ... priority production policy for coal and steel in 1947-48" cited to eikleaf.com and history.state.gov, neither states it. Task 94: "TSN ... latency typically around 10 ± 1 ms" cited to zte.com.cn and arxiv 2306.03691, neither states it. Task 94: "This is essential for high-speed collision avoidance and emergency preemption" cited to emtracsystems.com and link.springer.com. Task 87: "Krista Perry's 'Make it Fun' print, Larissa Martinez's 'Orange Daisies'" cited to potomaclaw.com (an EU copyright note) and investigatetv.com.
+- (c) Task 90 users.ece.cmu.edu/~koopman/j3016: "liability in L2 accidents typically rests with the human under negligence theories" and "Require systems to actively disable L3 capabilities" attached to a technical J3016 guide. Task 90 simonlawpc.com: "Prohibit the use of autonomy-suggestive branding below SAE Level 4" is a recommendation, not in the page. Task 68 sedai.io: "new pods enter a Pending state as they are unschedulable". Task 68 linkedin (Ratslav): "5 minutes for a node ... 7 minutes before the spike" is a worked example the writer invented. Task 94 pacificblueengineering.com: "latency typically must remain below 500 ms". Task 97 ACI/Oxera: "This threshold excludes CAPEX..." (page gives the 200,000 ppa threshold; the CAPEX reading is the agent's).
+- (e) Task 90 wshblaw.com: "Benavides v. Tesla ... over $240 million, finding Tesla partially liable" matches the page almost verbatim, the extra "Miami ... 2025 ... L2" was probably what failed. Task 90 gibsondunn.com: PLD 2024/2853 and software are on the page. Task 72 NBER w24196: page text is mojibake (`¹¹¹¹¹¹`). Task 87 lutzker.com: "The table notes that trademarks protect brand logos" is a fact extracted from a table description, not a page claim. Task 94 emtrac and others: pages truncated by the focus step cannot be told from here.
+- (d) Every NVIDIA search used `search_depth=advanced`, so Firecrawl text was returned for almost every result. The shim silently falls back to the Serper snippet when Firecrawl fails or returns empty (`gateway/app.py` line 123: `await _firecrawl(...) or content`), and 18 of 635 search calls returned zero results, but the log does not record which results fell back, so (d) cannot be measured. Next run should log it.
+
+GPT-Researcher's unsupported pairs differ in kind: median word overlap with the page is 0.57 against 0.47 for NVIDIA, only 10% are stacked citations, and the dominant class is (c) paraphrase beyond what the source states. It fails less often and in milder ways.
+
+Page-level view: domains matter little (academic/PDF 62%, other 54%, LinkedIn/Reddit/Facebook 36% for NVIDIA).
+
+## 2. How NVIDIA builds citations
+
+Pipeline: planner emits `ResearchPlan` (queries + `answer_strategy.required_components` + `constraints`). Each researcher worker (gemma-think) calls the Tavily tool, then returns a structured `ResearchNotes` (`models/subagent_contracts.py`): `findings[]` with `claim`, LLM-written `evidence` paraphrase, `source_ids` (note-local integers, possibly several per finding), `confidence`, plus `sources[]` (id, title, locator URL). The writer never sees page text. It reads the JSON notes from `/shared/`, calls `get_verified_sources` (compact list = registry sources carried forward in notes, deduped by normalised URL) and must itself map note-local ids to the global `[N]` numbering, then writes `output.md`.
+
+What `enable_citation_verification` does (`common/citation_verification.py`, `verify_citations`): a deterministic **identity** check. It parses the `## Sources` section, keeps only lines whose URL or citation key is in the `SourceRegistry` filled by `SourceRegistryMiddleware` from tool results, backfills dropped URLs, removes duplicate source lines, strips inline `[N]` that point to removed sources, then `sanitize_report` renumbers. It never compares a claim with a page. Consequence: it passes a report whose citations are all real URLs and mostly wrong. Leaving it on is correct (it protects against invented URLs; none occurred here), but it cannot move FACT.
+
+Where the URL-claim link degrades (inference from code plus the data above, not logged directly):
+- Two paraphrase hops: page text -> researcher `evidence` -> writer sentence. The researcher prompt asks for "in-depth, detailed findings ... narrative", the writer prompt asks to "cross-synthesize across research files" and "combine related claims into higher-level conclusions". Synthesis sentences inherit every source of the sources they merge, which produces the stacked citations.
+- Findings carry `source_ids` lists, so one claim may point to several sources while only one holds it.
+- Note-local ids vs global numbering must be remapped by the 31B writer; 37% of URLs having zero supported facts fits remapping slips plus citations on inference.
+- The writer prompt explicitly allows "inferences ... grounded in cited evidence", and the long-form skill demands "analytical conclusions" be cited, so recommendations and mechanisms get citations (class c).
+- "Retrying ResearchNotes as a tools-disabled JSON response" (`custom_middleware.py` `StructuredResponseTextFallbackMiddleware`): it triggers only when the researcher's last turn is plain text and not valid structured output; it re-asks with `tools=[]` for the same schema over the same context. The retry does not drop `source_ids`/`sources`, so it is unlikely to break the link; it costs one extra full-context call per affected worker. The `ResearcherFinalizationMiddleware` forced-finalisation turn (tools disabled after `max_researcher_model_calls`, default 100) is the same story. Neither shows up in `logs/stage1.log`, so the frequency is unknown.
+- Researcher context uses the DeepAgents summarization middleware; with 1 to 2 tool calls per query it rarely binds.
+
+Does the shim starve it? Partly, and mainly in the wrong way:
+- Not snippet-starved: all 635 NVIDIA searches were `advanced`, 3 results each, with up to 6000 characters of Firecrawl markdown.
+- But 6000 characters is the page head. Cited pages have a median of 26k characters (supported) and 21k (unsupported) in the judge's copy; papers reach 100 to 200k (Nature 113k, NBER 103k, arXiv 203k). The agent reads about a quarter of a typical page and none of a long paper beyond the abstract and intro. The judge sees up to about 15.7k focused characters per page, so the judge reads more than the agent did, which should help, not hurt.
+- Few results: `max_results: 3` gives about 90 unique URLs per task against 138 for GPT-R, 44 searches per task median. Effective citations stay near the 20 gate.
+- Researcher source budget is one primary call plus at most one corroboration call per query (`researcher.j2`), so there is no mechanism to open a specific URL a second time (no fetch/extract tool in the config).
+
+## 3. Why RACE is higher than GPT-Researcher
+
+On the 10 common tasks: overall 46.5 vs 45.2; comprehensiveness 44.7 vs 42.1 (NVIDIA wins 8 of 10), instruction following 47.9 vs 45.1 (7 of 10), readability 49.4 vs 48.5 (8 of 10), insight 45.9 vs 46.5 (GPT-R wins 8 of 10). The advantage is coverage and compliance, not depth.
+
+Structural features (from report text and prompts):
+- Prompt-mirroring plan. The planner turns the user's explicit and implicit requirements into `required_components` and `constraints`; the writer treats them as a coverage checklist. Task 82 asks for Europe, Asia, Americas, foundations, resource endowments, strategies; the NVIDIA headings are exactly Regional Overviews, European Path, Asian Path, Americas' Path, Foundational Conditions and Resource Endowments, EOI vs ISI, Geopolitical Factors. GPT-R adds an Abstract, "Middle-Income Trap and 3i Strategy", "AI as a Leapfrog Opportunity" and "Concrete Opinion", which are off the question and probably cost instruction-following.
+- Density without length: 1480 words average vs 2099, but 12 figures (percent or dollar) per report vs 8, 42 inline citations vs 34, 10 bullets vs 28, 7 H2 + 9 H3 vs 9 + 15. Fewer one-line bullets and more developed paragraphs fit the RACE readability and comprehensiveness criteria. Writer prompt: "Do not produce a sequence of short, isolated bullet points".
+- One comparison table per report with explicit units.
+- More parallel evidence lanes: up to 6 concurrent researcher workers over planned, non-overlapping queries (44 searches median) vs GPT-R's fixed 46.
+- The ceiling: the long-form skill asks for 3000 to 5000+ words but Gemma writes about 1500. That gap is the cheapest RACE headroom.
+
+## 4. Ranked tuning list
+
+Effects are estimates from this data (10 tasks, noisy), not measurements. "Code" means the packaged prompts/skills (`prompts/writer.j2`, `skills/synthesis/long-form-report-writer/SKILL.md`, `prompts/researcher.j2`) cannot be overridden from `config_eval.yml`; `DeepResearchSkillsConfig` only selects built-in skill collections. Easiest route: fork or mount-patch those files into the candidate image.
+
+| # | Change | Where | FACT accuracy | RACE | Tokens | Code? |
+|---|---|---|---|---|---|---|
+| 1 | Writer rule: one citation per sentence, the single source that contains the figure/quote; never stack `[a][b][c]`; delete "For information supported by multiple sources use adjacent citations". | `writer.j2`, long-form SKILL.md | up to +10 pp (65% ceiling from keeping the best URL; likely +5 to +8) | about 0 (maybe -0.3 from less visible corroboration) | 0 | yes, prompt only |
+| 2 | Researcher: `evidence` = short verbatim quote (under 40 words) from the tool output; one source per finding (`source_ids` length 1); no figures, names or products not present in the tool result; mark anything else as inference. Writer: only cite claims whose quote is in a note; analysis and recommendations get no citation and are phrased as the report's own judgment. | `researcher.j2`, `writer.j2` | +8 to +15 pp (targets classes a and c, 70% of misses) | -0.5 to -1 insight possible, offset by fewer errors | +3% | yes, prompt only |
+| 3 | Gateway: return query-relevant passages rather than the page head. Keep 6000 chars per result total but pick passages (BM25 or embedding with `qwen-embed`, already served) from the first 40k chars of Firecrawl markdown; stop silent snippet fallback (return a marker and log `fallback`). Optionally raise to 8000 chars with `max_results: 3`. | `gateway/app.py` `tavily_search`/`_firecrawl` | +3 to +6 pp (cuts invented specifics for long papers) | +0.5 comprehensiveness | 0 at equal chars, +25% prompt tokens at 8000 | gateway only |
+| 4 | Post-writer claim check: for each cited sentence, ask gemma-fast whether the cited page text (from the gateway cache of the same Firecrawl result) supports it; drop the citation or the sentence if not. A real step instead of identity-only `verify_citations`. | new middleware after writer | +10 to +15 pp | about 0 | +100 to +200k with gemma-fast (non-thinking) | yes, new code |
+| 5 | `max_results: 5` with `advanced_search: true`, and keep per-result text at 4000 chars (gateway constant) to hold tokens flat; gives 150 or more URLs per task and more effective citations (20.1 -> about 25). | `config_eval.yml` + gateway | +0 to +2 pp, effective citations +20% | +0.5 to +1 (breadth) | about +10% | no |
+| 6 | Writer length: replace "3000-5000+ words" with a hard floor (for example "at least 2500 words, every required component gets at least two developed paragraphs") and keep tables. Gemma-think writer already has `max_tokens: 32768`. | writer SKILL.md | 0 to -1 pp (longer reports carry more claims; neutral once 1 and 2 are applied) | +1 to +2 comprehensiveness | +20k completion | yes, prompt only |
+| 7 | Log scrape failures: record per result whether Firecrawl text or snippet was returned, and the content length. Needed to size class (d) and to pick between 3 and 5. | `gateway/app.py` | measurement | 0 | 0 | gateway only |
+| 8 | Keep `enable_citation_verification: true` (it blocks unregistered URLs). Do not expect it to improve FACT. | `config_eval.yml` | 0 | 0 | 0 | no |
+| 9 | Leave `max_researcher_model_calls` (100), `max_research_concurrency` (6) and the source router as they are; the median task uses 40 to 70 LLM calls, so the budget is not binding. To cut tokens, shrink what the researcher reads (item 3) rather than the call count. | `config_eval.yml` | 0 | 0 | none | no |
+| 10 | Separate fetch/extract tool so a researcher can open a cited URL in full. The Tavily plugin only searches; a fetch tool means a new NAT function plus a prompt line, and the researcher budget is one call per query. Only worth it if item 3 does not close the gap on long papers. | new tool | +2 to +4 pp | 0 | +10 to +20% | yes, new code |
+
+Suggested order of experiments on the 10 judged tasks: 7 first (free), then 1 + 2 together (prompt-only fork, one run), then 3, then 4 if FACT is still under 70%. Re-judge with the same FACT judge; compare on `valid_rate` and on the share of multi-URL facts and zero-support URLs, which are the two diagnostics used here. Items 1 and 2 together should clear the 60% gate; 3 and 4 are for reaching GPT-Researcher's 79%.
+
+Caveat on the gate numbers: 10 tasks, FACT is per task 25% to 80%; a single weak task (87, 25%) moves the mean by 5 pp. Task 87 also holds 17 of the 64 unscrapable pairs, so fixing scrape-hostile domains (prefer sources the judge's scraper can open, for example avoid ResearchGate, academia.edu, IEEE, Facebook) is a second-order lever worth testing: a blocklist for those domains in the gateway search shim is a gateway-only change (the gateway already has a `blocked()` hook), but it tunes to the judge's scraper rather than to report quality, so report it separately if used.

@@ -1,0 +1,12 @@
+[project]
+name = "gptr-candidate"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "gpt-researcher @ git+https://github.com/assafelovic/gpt-researcher@v3.7.0",
+    "firecrawl-py>=4.0",
+    "langchain-mcp-adapters>=0.1",
+]
+
+[tool.uv]
+package = false
