@@ -2,6 +2,7 @@
 -> section-wise writing -> verification. See docs/research-agent-design.md."""
 
 import asyncio
+import dataclasses
 import json
 import re
 import threading
@@ -13,6 +14,9 @@ from . import prompts as P
 from .config import Budget, Config, Preset
 from .ledger import Card, Ledger, SubQ, quote_in_page
 from .llm import LLM
+from . import own as O
+from .sources import Registry, mcp_to_sources
+from .text import Evidence, checked_numbers, fix_sr_labels, split_units, unsupported
 from .tools import MCPClient, Tools, domain, domain_match, focus
 
 Event = Callable[[str, str], Awaitable[None] | None]
@@ -26,25 +30,6 @@ class Result:
     ledger: dict
     usage: dict
     stats: dict = field(default_factory=dict)
-
-
-_ABBR = re.compile(r"(?:\b(?:Abs|Nr|Art|Ziff|lit|bzw|ca|vgl|resp|Dr|Prof|St|Mio|Mrd|Fr|Bd|Kap|Anm|ff|al|inkl|exkl|evtl|ggf|sog|usw|etc|Jan|Feb|Mär|Apr|Jun|Jul|Aug|Sep|Sept|Okt|Nov|Dez|No|Vol|e\.g|i\.e|vs|approx)|\bz\.\s?B|\bd\.\s?h|\bu\.\s?a|\bi\.\s?d\.\s?R|\b[A-ZÄÖÜa-zäöü]|\d)\.$")
-
-
-def split_units(text: str) -> list[str]:
-    """Sentences and lines for citation checks. Splits only before an uppercase letter or quote and not
-    after abbreviations, ordinals or initials, so a removal never cuts a sentence in half."""
-    units = []
-    for line in text.split("\n"):
-        start = 0
-        for m in re.finditer(r"(?<=[.!?])\s+(?=[A-ZÄÖÜ„\"«(\[])", line):
-            head = line[start:m.start()]
-            if _ABBR.search(head):
-                continue
-            units.append(head)
-            start = m.end()
-        units.append(line[start:])
-    return [u for u in units if u.strip()]
 
 
 def _today() -> str:
@@ -61,6 +46,10 @@ class ResearchAgent:
         self._mcp_errors: dict[str, str] = {}
         self._mcp_lock = threading.Lock()
         self._de = False
+        self._evs: dict[str, Evidence] = {}      # card id -> number forms (verify)
+        self._task_ev = Evidence()               # numbers of the task itself need no evidence
+        self._mcp_ctx: dict = {}                 # per-run MCP lookups (dataset titles)
+        self.own: O.OwnSources | None = None     # the user's files / knowledge bases of the current run (research_agent/own.py)
 
     async def _emit(self, kind: str, text: str) -> None:
         if self.on_event:
@@ -69,10 +58,15 @@ class ResearchAgent:
                 await r
 
     # ------------------------------------------------------- chat turns
-    async def clarify(self, task: str) -> dict:
+    async def clarify(self, task: str, own: "O.OwnSources | None" = None) -> dict:
         """At most 2 clarifying questions; none for detailed tasks (they already state their scope)."""
         if len(task) > 600:
             return {"questions": [], "assumptions": []}
+        if own and (own.files or own.collections):
+            task += ("\n\n(The user has ALREADY ATTACHED these own sources: "
+                     + "; ".join([f'file "{f.name}"' for f in own.files] + [f'knowledge base "{c.name}"' for c in own.collections])
+                     + ". Phrases like 'my document' or 'the attached file' mean them. Never ask the user to upload or "
+                       "provide them again.)")
         data = await self.llm.json("fast", "You decide whether a research task needs clarification. Output JSON only.",
                                    P.CLARIFY.format(task=task), step="clarify", default={}) or {}
         return {"questions": [str(q) for q in data.get("questions") or []][:2],
@@ -85,11 +79,27 @@ class ResearchAgent:
         return self._validate_plan(raw, task, preset, budget) if isinstance(raw, dict) else plan
 
     # ------------------------------------------------------------------ plan
-    async def plan(self, task: str, preset: Preset, budget: Budget) -> dict:
+    @staticmethod
+    def _own_for(own: "O.OwnSources | None", preset: Preset) -> "O.OwnSources | None":
+        """The user's own sources as the preset wants them: ignored for own_sources: off, web-less for `only`."""
+        if own is None or preset.own_sources == "off" or not (own.files or own.collections):
+            return None
+        own.mode = "only" if preset.own_sources == "only" else "prefer"
+        return own
+
+    async def plan(self, task: str, preset: Preset, budget: Budget, own: "O.OwnSources | None" = None) -> dict:
         hint = ""
         if preset.report.get("parts_hint"):
             hint = f"Typical parts for this kind of research: {', '.join(preset.report['parts_hint'])} (adapt to the task)."
-        hits = await self.tools.search(task[:200], "de" if preset.language == "de" else "en", num=8)
+        own = self._own_for(own, preset)
+        if own:
+            hint += (" The user supplied own sources: " + "; ".join(
+                [f'file "{f.name}"' + (f" (begins: {f.text[:300]!r})" if f.text else "") for f in own.files]
+                + [f'knowledge base "{c.name}"' for c in own.collections])
+                + (". Answer ONLY from these; plan sub-questions the documents can answer." if own.mode == "only"
+                   else ". Plan sub-questions so that these sources are used wherever they are relevant."))
+        hits = [] if own and own.mode == "only" else \
+            await self.tools.search(task[:200], "de" if preset.language == "de" else "en", num=8)
         discovery = "\n".join(f"- {h['title']} ({domain(h['url'])}): {h['snippet'][:180]}" for h in hits) or "-"
         raw = await self.llm.json("think", "You are a careful research planner. Output JSON only.",
                                   P.PLAN.format(today=_today(), task=task, discovery=discovery, parts_hint=hint, max_subq=budget.max_subq,
@@ -215,12 +225,12 @@ class ResearchAgent:
         return await self._extract(sq, url, page_title or title, excerpt, plan, led, "web")
 
     async def _extract(self, sq: SubQ, url: str, title: str, text: str, plan: dict, led: Ledger, kind: str,
-                       with_url: bool = False) -> int:
+                       sources: Registry | None = None) -> int:
         prompt = P.EXTRACT.format(task_core=plan["task_core"], subq=sq.text, title=title, url=url, text=text,
                                   lang="German" if plan["language"] == "de" else "English")
-        if with_url:
-            prompt += ('\n- Add "url" to each finding: the URL of the document the quote belongs to, copied from the '
-                       'source text (empty if none is given).')
+        if sources is not None:
+            prompt += ('\n- Add "source" to each finding: the ID in square brackets (e.g. "S4") of the item the quote '
+                       'comes from.')
         data = await self.llm.json("fast", "You extract verifiable evidence. Output JSON only.", prompt,
                                    step="extract", default={}) or {}
         added, rejected = 0, 0
@@ -230,11 +240,15 @@ class ResearchAgent:
             if not quote_in_page(str(f["quote"]), text):
                 rejected += 1
                 continue
-            card_url = url
-            if with_url and str(f.get("url", "")).startswith("http"):
-                card_url = str(f["url"]).strip()
-            if led.add_card(sq.id, card_url, title, str(f["quote"])[:600], str(f["finding"]), kind,
-                            date=str(data.get("date") or "") if isinstance(data, dict) else ""):
+            card_url, card_title = url, title
+            date = str(data.get("date") or "") if isinstance(data, dict) else ""
+            if sources is not None:              # MCP: the item's own URL, title and date, never the endpoint
+                src = sources.get(str(f.get("source", "")).strip("[] "))
+                if src is None:
+                    src = next((s for s in sources.sources.values() if s.url and str(f["quote"])[:60] in s.text), None)
+                if src is not None:
+                    card_url, card_title, date = src.url, src.title, src.date or date
+            if led.add_card(sq.id, card_url, card_title, str(f["quote"])[:600], str(f["finding"]), kind, date=date):
                 added += 1
         led.log("extract", subq=sq.id, url=url, added=added, rejected_quotes=rejected)
         return added
@@ -244,7 +258,8 @@ class ResearchAgent:
         if not client:
             led.log("mcp_unavailable", subq=sq.id, server=server, error=self._mcp_errors.get(server, ""))
             return 0
-        tools = [{"type": "function", "function": {"name": t["name"], "description": (t.get("description") or "")[:900],
+        own = self.cfg.mcp_tool_descriptions.get(server, {})
+        tools = [{"type": "function", "function": {"name": t["name"], "description": own.get(t["name"]) or (t.get("description") or "")[:900],
                                                    "parameters": t.get("inputSchema") or {"type": "object", "properties": {}}}}
                  for t in await asyncio.to_thread(client.tools)]
         messages = [{"role": "system", "content": P.MCP_AGENT.format(today=_today(), task_core=plan["task_core"],
@@ -274,14 +289,16 @@ class ResearchAgent:
                 except Exception as e:
                     out = f"tool error: {e}"
                 led.log("mcp_call", subq=sq.id, server=server, tool=tc.function.name, args=args, chars=len(out))
-                # citable URL when the extractor gives none: first document link in the tool result
-                links = re.findall(r"https?://[^\s)\]\"'>]+", out)
-                fallback = next((u for u in links if "mcp." not in u), self.cfg.mcp_servers.get(server, ""))
-                if server == "data-bs" and args.get("dataset_id"):
-                    fallback = f"https://data.bs.ch/explore/dataset/{args['dataset_id']}/"
-                if len(out) > 200 and not out.startswith("tool error"):
-                    added += await self._extract(sq, fallback, f"{server}: {tc.function.name}", out[:14000], plan, led,
-                                                 f"mcp:{server}", with_url=True)
+                if out.startswith("tool error"):
+                    messages.append({"role": "tool", "tool_call_id": tc.id, "content": out[:1000]})
+                    continue
+                reg = Registry()                 # per call: the IDs the extractor sees
+                out, _ = mcp_to_sources(server, tc.function.name, args, out, reg, self.cfg.mcp_servers[server],
+                                        self._mcp_ctx, max_chars=14000)
+                # catalogue listings are not evidence (German set analysis: 54 of 64 extracts gave nothing)
+                if len(out) > 200 and tc.function.name not in ("get_datasets", "get_dataset", "get_facets", "list_facets"):
+                    added += await self._extract(sq, "", f"{server}: {tc.function.name}", out, plan, led,
+                                                 f"mcp:{server}", sources=reg)
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": out[:8000]})
             # tool calls beyond the budget still need a tool message, or the next chat call is invalid
             answered = {m.get("tool_call_id") for m in messages if m.get("role") == "tool"}
@@ -290,11 +307,26 @@ class ResearchAgent:
                     messages.append({"role": "tool", "tool_call_id": tc.id, "content": "skipped: tool budget used up"})
         return added
 
+    async def _own(self, sq: SubQ, plan: dict, led: Ledger) -> int:
+        """Evidence cards from the user's uploads and knowledge bases (pipeline engine)."""
+        items = await O.evidence_items(self.own, self.llm, [sq.text, plan["task_core"]])
+        led.log("own_sources", subq=sq.id, items=[i["title"] for i in items])
+        counts = await asyncio.gather(*(self._extract(sq, i["url"], i["title"], i["text"], plan, led, i["kind"])
+                                        for i in items))
+        return sum(counts)
+
     async def _research_subq(self, sq: SubQ, plan: dict, preset: Preset, budget: Budget, led: Ledger) -> int:
         async with self.sem:
             await self._emit("status", f"Recherche: {sq.text[:90]}")
             routes = preset.routes.get(sq.intent) or ["web"]
             added = 0
+            if self.own:
+                try:
+                    added += await self._own(sq, plan, led)
+                except Exception as e:
+                    led.log("error", subq=sq.id, route="own", error=str(e)[:300])
+                if self.own.mode == "only":
+                    return added
             for route in routes:
                 try:
                     if route.startswith("mcp:"):
@@ -375,17 +407,23 @@ class ResearchAgent:
                                                            requirements=requirements or "-",
                                                            must_name=", ".join(plan["must_name"]) or "-",
                                                            cards=self._card_lines(cards) or "(no evidence found)",
-                                                           words=preset.report.get("words_per_part") or budget.words_per_part),
+                                                           length_rule=(preset.report.get("length_rule") or P.LENGTH_RULE).format(
+                                                               words=preset.report.get("words_per_part") or budget.words_per_part),
+                                                           format_rule=preset.report.get("format_rule") or P.FORMAT_RULE),
                                        step="write", max_tokens=8000)
         return re.sub(r"^#{1,2}\s+.*\n", "", text.strip(), count=1) if text.lstrip().startswith(("# ", "## ")) else text
 
     # --------------------------------------------------------------- verify
-    _NUM = re.compile(r"(?<![\w.])\d[\d'’ ]*(?:[.,]\d+)?")
-
-    def _nums(self, s: str) -> set[str]:
-        return {re.sub(r"['’ ]", "", n).replace(",", ".").rstrip(".") for n in self._NUM.findall(s)}
+    def _card_ev(self, card: Card) -> Evidence:
+        ev = self._evs.get(card.id)
+        if ev is None:
+            ev = self._evs[card.id] = Evidence(card.quote + " " + card.finding + " " + card.title + " " + card.date)
+        return ev
 
     async def _verify(self, text: str, led: Ledger, stats: dict, entail: bool) -> str:
+        """v2 behaviour plus a tolerant number check (decimal comma, thousands separators, dates, rounding).
+        A failed check removes the citation, the sentence stays; only a cited sentence whose numbers occur in
+        no card at all is dropped (reliable signal). A number found in another card re-points the citation."""
         # collapse stacked citations ([E1][E2], [E1, E2]) to the first one
         text = re.sub(r"\[E(\d+)(?:\s*[,;/&]\s*E?\d+)+\]",
                       lambda m: (stats.__setitem__("stacked", stats.get("stacked", 0) + 1), f"[E{m.group(1)}]")[1], text)
@@ -399,11 +437,8 @@ class ResearchAgent:
                 if not card:
                     checks.append((u, m.group(0), None, "unknown"))
                     continue
-                sent_nums = {n for n in self._nums(re.sub(r"\[E\d+\]", "", u)) if len(n) >= 2}
-                if sent_nums - self._nums(card.quote + " " + card.finding):
-                    checks.append((u, m.group(0), card, "number"))
-                else:
-                    checks.append((u, m.group(0), card, "ok"))
+                missing = unsupported(re.sub(r"\[E\d+\]", "", u), self._card_ev(card), self._task_ev)
+                checks.append((u, m.group(0), card, "number" if missing else "ok"))
         if entail:
             pending = [c for c in checks if c[3] == "ok"]
             for i in range(0, len(pending), 20):
@@ -417,28 +452,41 @@ class ResearchAgent:
                         u, tag, c, _ = batch[int(j)]
                         checks[checks.index(batch[int(j)])] = (u, tag, c, "entail")
         for u, tag, card, verdict in checks:
-            if verdict != "ok":
-                stats[f"removed_{verdict}"] = stats.get(f"removed_{verdict}", 0) + 1
-                if u.lstrip().startswith("|"):           # table row: keep the row, mark the cell
-                    text = text.replace(u, u.replace(tag, " (nicht belegt)" if self._de else " (no evidence)", 1), 1)
-                else:                                     # prose: an unsupported factual sentence is dropped
-                    text = text.replace(u, "", 1)
-                    stats["dropped_sentences"] = stats.get("dropped_sentences", 0) + 1
-            else:
+            if verdict == "ok":
                 stats["kept"] = stats.get("kept", 0) + 1
+                continue
+            stats[f"removed_{verdict}"] = stats.get(f"removed_{verdict}", 0) + 1
+            if verdict == "number":
+                plain = re.sub(r"\[E\d+\]", "", u)
+                fix = next((c for c in led.cards.values() if not unsupported(plain, self._card_ev(c), self._task_ev)), None)
+                if fix:                               # another card has all its numbers: re-point
+                    text = text.replace(u, u.replace(tag, f"[{fix.id}]", 1), 1)
+                    stats["repaired"] = stats.get("repaired", 0) + 1
+                    continue
+                nums = checked_numbers(plain, self._task_ev)
+                found = [t for t, f in nums if any(self._card_ev(c).supports(f) for c in led.cards.values())]
+                if nums and not found and not u.lstrip().startswith("|"):
+                    text = text.replace(u, "", 1)     # no card has any of its numbers: reliable signal
+                    stats["dropped_sentences"] = stats.get("dropped_sentences", 0) + 1
+                    continue
+            if u.lstrip().startswith("|"):           # table row: keep the row, mark the cell
+                text = text.replace(u, u.replace(tag, " (nicht belegt)" if self._de else " (no evidence)", 1), 1)
+            else:                                     # v2: the citation goes, the sentence stays
+                text = text.replace(u, u.replace(tag, "", 1), 1)
         return re.sub(r"(?<=\S)  +", " ", re.sub(r" +([.,;:])", r"\1", text))
 
     def _resolve(self, sections: list[tuple[str, str]], led: Ledger, plan: dict) -> str:
         url_no: dict[str, int] = {}          # one number per source URL, in order of first citation
+        key = lambda c: c.url or f"title:{c.title}"   # sources without public URL: one entry per title
         for _, body in sections:
             for m in re.finditer(r"\[E(\d+)\]", body):
                 card = led.cards.get(f"E{m.group(1)}")
                 if card:
-                    url_no.setdefault(card.url, len(url_no) + 1)
+                    url_no.setdefault(key(card), len(url_no) + 1)
 
         def num(m):
             card = led.cards.get(f"E{m.group(1)}")
-            return f"[{url_no[card.url]}]" if card else ""
+            return f"[{url_no[key(card)]}]" if card else ""
 
         out = [f"# {plan['title']}"]
         for title, body in sections:
@@ -446,27 +494,35 @@ class ResearchAgent:
             body = re.sub(r"(\[\d+\])(\s*\1)+", r"\1", body)   # same source twice in a row
             out.append(f"## {title}\n\n{body.strip()}")
         de = plan["language"] == "de"
-        titles = {c.url: c for c in led.cards.values()}
+        titles = {key(c): c for c in led.cards.values()}
         def when(c: Card) -> str:
             stand = f"{'Stand' if de else 'dated'} {c.date}; " if c.date else ""
             return f"({stand}{'abgerufen am' if de else 'accessed'} {c.fetched_at})"
 
-        lines = [f"[{n}] {titles[u].title.strip()[:160]}: {u} {when(titles[u])}"
+        nourl = "keine öffentliche URL" if de else "no public URL"
+        lines = [f"[{n}] {titles[u].title.strip()[:160]}: {titles[u].url or nourl} {when(titles[u])}"
                  for u, n in sorted(url_no.items(), key=lambda x: x[1])]
         out.append(("## Quellen" if de else "## Sources") + "\n\n" + "\n".join(lines))
         return "\n\n".join(out) + "\n"
 
     # ------------------------------------------------------------------ run
     async def run(self, task: str, preset_name: str, depth: str = "standard", plan: dict | None = None,
-                  requirements: str = "") -> Result:
+                  requirements: str = "", own: "O.OwnSources | None" = None) -> Result:
         """task = the research question (used for planning and research); requirements = report-format
-        requirements (structure, citation style) that only the writer sees."""
+        requirements (structure, citation style) that only the writer sees; own = the user's files and knowledge bases."""
         preset, budget = self.cfg.presets[preset_name], self.cfg.budgets[depth]
+        self.own = self._own_for(own, preset)
+        if preset.budget:                        # per-preset budget overrides (e.g. more pages for surveys)
+            budget = dataclasses.replace(budget, **preset.budget)
+        if preset.engine == "focus":
+            from .focus import FocusEngine
+            return await FocusEngine(self).run(task, preset, budget, plan, requirements)
         started = time.time()
         if plan is None:
             await self._emit("status", "Erstelle Rechercheplan")
-            plan = await self.plan(task, preset, budget)
+            plan = await self.plan(task, preset, budget, own=self.own)
         led = Ledger()
+        self._task_ev = Evidence(task + " " + requirements)
         for q in plan["sub_questions"]:
             led.subqs[q["id"]] = SubQ(id=q["id"], part=q["part"], text=q["text"], intent=q["intent"])
         led.log("plan", plan=plan)
@@ -522,6 +578,13 @@ class ResearchAgent:
         sections = ([(summary_title, summary)] + [(p["title"], t) for p, t in zip(plan["parts"], verified)]
                     + ([(analysis_title, analysis)] if analysis_title else []) + [(closing_title, closing)])
         report = self._resolve(sections, led, plan)
+        cantonal = {}
+        for c in led.cards.values():
+            for m in re.finditer(r"\b(SG|SGS|LS|BSG)[ -](?:Nummer:\*\*\s*)?(\d{1,3}(?:\.\d+)+)", c.quote + " " + c.title):
+                cantonal.setdefault(m.group(2), m.group(1))
+            if m := re.search(r"gesetzessammlung\.bs\.ch/(?:data|app/de/texts_of_law)/(\d{1,3}(?:\.\d+)+)", c.url):
+                cantonal.setdefault(m.group(1), "SG")
+        report = fix_sr_labels(report, cantonal)
         if plan["language"] == "de":
             report = report.replace("ß", "ss")
         stats.update({"rounds": rounds_done, "subqs": len(led.subqs), "cards": len(led.cards), "fetched": len(led.fetched),

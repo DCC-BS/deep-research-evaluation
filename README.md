@@ -16,7 +16,10 @@ This repo evaluates deep-research engines for Bebbi Bot (Open WebUI, Kanton Base
 | `eval/candidates/` | Adapters for the approaches compared |
 | `candidates/gpt-researcher/` | GPT-Researcher v3.7.0 venv, runner and code patches (`build_overlay.py`) |
 | `candidates/nvidia-dra/` | NVIDIA Deep Researcher 2.2 config and prompt patches (`build_prompts.py`) |
-| `research_agent/`, `config/presets.yaml` | Our own engine and its presets |
+| `research_agent/`, `config/presets.yaml` | Our own engine and its presets: focus engine (`focus.py`) for the administrative presets, survey pipeline (`agent.py`) for broad web topics, source records (`sources.py`), text checks (`text.py`) |
+| `tests/` | Unit tests for the citation layer (`uv run pytest`) |
+| `comparison/` | Our German reports next to Gemini and Perplexity Deep Research; compared by the `report-comparison` subagent ([comparison/README.md](comparison/README.md)) |
+| `docs/mcp-servers.md` | State of the four MCP servers and suggested server changes |
 | `service/`, `pipe/` | Job service (FastAPI) and Open WebUI pipe for production |
 | `config/tasks.yaml`, `testsets/de-admin.json` | Task sets (DRB subset, German administrative set) and MCP allowlists |
 | `config/variants.yaml` | Tuning variants (`<candidate>@<variant>`) |
@@ -74,7 +77,7 @@ uv run python -m eval.viewer
 | `baseline-agent` | A tool-calling loop: web search, page fetch, allowlisted MCP tools, at most 16 calls |
 | `gpt-researcher` (`@patched`, `@cfg`) | GPT-Researcher deep mode. `@patched` adds the code fixes from `build_overlay.py` |
 | `nvidia-dra` (`@lean`, `@cite`) | NVIDIA Deep Researcher via `nat run`, one container per task |
-| `research-agent` | Our own engine (`research_agent/`). The preset per task is set in `eval/candidates/research_agent.py` |
+| `research-agent` | Our own engine (`research_agent/`). The preset per task is set in `eval/candidates/research_agent.py`; the preset's `engine` picks focus loop or pipeline. `@v4`, `@v4r2`, `@v4r3` are repeats of the v4 code |
 
 **Results** go to `results/<candidate>/<set>/` (git-ignored):
 
@@ -98,9 +101,10 @@ The final numbers come from these runs, in order:
 | 3 | `scripts/final.sh` | `research-agent` on all 20 DRB tasks; the German set for all approaches; the 10 held-out DRB tasks for `gpt-researcher@patched` and `nvidia-dra@lean` |
 | 4 | `scripts/followup.sh`, `scripts/rerun66.sh` | Reruns after the data.bs.ch outage and the GPT-Researcher context overflows |
 | 5 | `scripts/v3eval.sh` | `research-agent@v3`, then re-judges the German set |
+| 6 | `scripts/v4eval.sh` | v4 (focus engine, Grossrat MCP): German set 3×, DRB tuning tasks 2×, `baseline-agent@grossrat` 1× |
 
 Notes:
-- **Code version:** the `research_agent/` code in this commit is **v3**. The `research-agent` (v2) numbers in the report were produced before the v3 changes. The changes are listed in [docs/analysis/research-agent-vs-baseline.md](docs/analysis/research-agent-vs-baseline.md) and [docs/analysis/nvidia-vs-research-agent-de.md](docs/analysis/nvidia-vs-research-agent-de.md).
+- **Code version:** the `research_agent/` code is **v4** (step 6). It was **v3** at commit 6beccd9. The `research-agent` (v2) numbers in the report were produced before the v3 changes. The changes are listed in [docs/analysis/research-agent-vs-baseline.md](docs/analysis/research-agent-vs-baseline.md) and [docs/analysis/nvidia-vs-research-agent-de.md](docs/analysis/nvidia-vs-research-agent-de.md).
 - **Single runs are noisy:** about ±4 rubric points on the German set and about ±1.5 RACE. Repeat runs before drawing conclusions.
 - **MCP endpoints:** `mcp.data.bs.ch` moved from `/` to `/mcp` during the evaluation. `config/tasks.yaml` and `config/presets.yaml` use `/mcp`.
 

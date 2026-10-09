@@ -14,8 +14,10 @@ Environment:
   RA_PRESETS              path to presets.yaml (default config/presets.yaml)
   RA_DB                   SQLite file (default data/research-agent.db)
   RA_NIGHT_WINDOW         e.g. 20:00-05:00 (jobs submitted with when=night start only inside it)
-  RA_WORKERS              concurrent jobs (default 1)
-  RA_QUOTA_PER_DAY        jobs per user and day (default 3)
+  RA_WORKERS              concurrent jobs inside the night window (default 1)
+  RA_DAY_WORKERS          concurrent jobs outside it (default 1); only quick runs of a focus-engine preset
+                          start outside the window, everything else is queued for the night
+  RA_QUOTA_PER_DAY        jobs per user and day; 0 = no quota (default, decision 2026-10-09)
   OWUI_URL / OWUI_API_KEY optional: write finished reports into the Open WebUI chat message
                           (POST /api/v1/chats/{chat}/messages/{message}; needs an admin service account)
 """
@@ -41,7 +43,8 @@ CFG = load_config(Path(os.environ.get("RA_PRESETS", ROOT / "config" / "presets.y
 DB_PATH = Path(os.environ.get("RA_DB", ROOT / "data" / "research-agent.db"))
 WINDOW = os.environ.get("RA_NIGHT_WINDOW", "20:00-05:00")
 WORKERS = int(os.environ.get("RA_WORKERS", "1"))
-QUOTA = int(os.environ.get("RA_QUOTA_PER_DAY", "3"))
+DAY_WORKERS = int(os.environ.get("RA_DAY_WORKERS", "1"))
+QUOTA = int(os.environ.get("RA_QUOTA_PER_DAY", "0"))
 
 SCHEMA = """
 create table if not exists drafts (id text primary key, task text, preset text, depth text, plan text, created real);
@@ -121,10 +124,10 @@ async def worker_loop() -> None:
     running: set[asyncio.Task] = set()
     while True:
         running = {t for t in running if not t.done()}
-        if len(running) < WORKERS:
-            window_ok = in_window()
+        window_ok = in_window()
+        if len(running) < (WORKERS if window_ok else DAY_WORKERS):
             rows = await db.run("select * from jobs where status='queued' and (run_when='now' or ?) order by created limit ?",
-                                1 if window_ok else 0, WORKERS - len(running))
+                                1 if window_ok else 0, (WORKERS if window_ok else DAY_WORKERS) - len(running))
             for job in rows:
                 await db.run("update jobs set status='starting' where id=?", job["id"])
                 running.add(asyncio.create_task(run_job(job)))
@@ -164,7 +167,7 @@ class JobIn(BaseModel):
 
 @app.get("/presets", dependencies=[Depends(auth)])
 async def presets():
-    return [{"name": p.name, "description": p.description} for p in CFG.presets.values()]
+    return [{"name": p.name, "description": p.description, "engine": p.engine} for p in CFG.presets.values()]
 
 
 @app.post("/clarify", dependencies=[Depends(auth)])
@@ -195,17 +198,26 @@ async def edit_plan(draft_id: str, body: EditIn):
     return {"draft_id": draft_id, "plan": plan}
 
 
+def runs_by_day(preset: str, depth: str) -> bool:
+    """Office hours: only quick runs of the focus engine (about 20-50k tokens, 2-3 min) start right away."""
+    p = CFG.presets.get(preset)
+    return depth == "quick" and p is not None and p.engine == "focus"
+
+
 @app.post("/jobs", dependencies=[Depends(auth)])
 async def submit(body: JobIn):
     rows = await db.run("select * from drafts where id=?", body.draft_id)
     if not rows:
         raise HTTPException(404, "unknown draft")
-    since = time.time() - 86400
-    used = (await db.run("select count(*) n from jobs where user_id=? and created>?", body.user_id, since))[0]["n"]
-    if used >= QUOTA:
-        raise HTTPException(429, f"quota of {QUOTA} research jobs per day reached")
+    if QUOTA:
+        since = time.time() - 86400
+        used = (await db.run("select count(*) n from jobs where user_id=? and created>?", body.user_id, since))[0]["n"]
+        if used >= QUOTA:
+            raise HTTPException(429, f"quota of {QUOTA} research jobs per day reached")
     d, job_id = rows[0], uuid.uuid4().hex[:12]
     when = body.when if body.when in ("now", "night") else "night"
+    if when == "now" and not in_window() and not runs_by_day(d["preset"], d["depth"]):
+        when = "night"
     await db.run("insert into jobs (id, draft, task, preset, depth, plan, user_id, chat_id, message_id, run_when, status, created, events)"
                  " values (?,?,?,?,?,?,?,?,?,?,?,?,?)", job_id, d["id"], d["task"], d["preset"], d["depth"], d["plan"],
                  body.user_id, body.chat_id, body.message_id, when, "queued", time.time(), "[]")

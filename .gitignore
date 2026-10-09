@@ -9,4 +9,5 @@ __pycache__/
 .venv/
 candidates/nvidia-dra/generated/
 candidates/gpt-researcher/overlay/
-.claude/
+.claude/*
+!.claude/agents/

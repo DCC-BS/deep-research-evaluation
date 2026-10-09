@@ -46,6 +46,47 @@ nvidia-dra:
 research-agent:
   # v3: fixes from docs/analysis/research-agent-vs-baseline.md + nvidia-vs-research-agent-de.md
   v3: {}
+  # v4: focus engine for the administrative presets (Grossrat MCP, code-resolved citations), survey pipeline
+  # with the v3 sentence dropping undone and a tolerant number check. r2/r3 are repeats (same config).
+  v4: {}
+  v4r2: {}
+  v4r3: {}
+  # v5: survey pipeline (web_survey only) writes longer, more connected parts from more pages
+  # (DRB RACE analysis: v4 lost comprehensiveness and insight to v2 through thinner parts).
+  # Result: RACE 47.0 / 45.8 on 51, 57, 87 (v4 44.3 / 44.4); now the default in config/presets.yaml.
+  v5: &v5
+    preset_overrides:
+      web_survey:
+        budget: {fetch_per_subq: 6}
+        report:
+          words_per_part: 1100
+          length_rule: >-
+            Write about {words} words: use all evidence that serves this part and go into detail (figures,
+            examples, comparisons, causes, consequences); never pad with general statements.
+          format_rule: >-
+            Write connected analytical paragraphs; use at most two ### sub-headings and at most one Markdown
+            table, only for a central comparison of several entities or periods.
+  v5r2: *v5
+  v5r3: *v5
+  # v6: citation repair only on distinctive numbers (years never pick a source), code adds citations only from
+  # sources the report already cites, every change logged (full-text task analysis, DE-G4..G9)
+  v6: *v5
+  v6r2: *v5
+  # v6 without the plan step for the grossrat preset (full-text questions already name their Geschäfte)
+  v6np: &v6np
+    preset_overrides:
+      grossrat: {plan_first: false}
+  v6npr2: *v6np
+  # v4.1: prompt rules for relative periods ("laufende Legislatur") and implausible source dates (G3 analysis).
+  # Tested on DE-G1/G3 3x: no gain (G3 41.9 vs 53.1, G1 58.9 vs 62.2); the rules were removed again.
+  v41: {}
+  v41r2: {}
+  v41r3: {}
   # Smoke tests of the own agent (quick depth).
   smoke:
     depth: quick
+baseline-agent:
+  # same loop, run after the German set got the Grossrat MCP server for the Grossrat tasks; r2/r3 are repeats
+  grossrat: {}
+  grossratr2: {}
+  grossratr3: {}

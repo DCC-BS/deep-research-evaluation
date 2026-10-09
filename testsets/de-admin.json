@@ -1,5 +1,5 @@
 {
- "version": "0.2-draft",
+ "version": "0.3-draft",
  "note": "Entwurf. Fragen und Bewertungskriterien müssen von Fachpersonen (Recht, Parlamentsdienst, Statistik, Strategie) geprüft werden. Keine Personendaten. Kriterien beschreiben, was ein guter Bericht enthalten muss, nicht die Antwort.",
  "rubric_common": [
   "Beantwortet die Frage vollständig und strukturiert (Zusammenfassung, Hauptteil, offene Punkte)",
@@ -74,7 +74,7 @@
    "category": "Grossrat",
    "depth": "deep",
    "sources": [
-    "mcp:data-bs",
+    "mcp:grossrat",
     "web"
    ],
    "languages": [
@@ -93,7 +93,7 @@
    "category": "Grossrat",
    "depth": "standard",
    "sources": [
-    "mcp:data-bs",
+    "mcp:grossrat",
     "web"
    ],
    "languages": [
@@ -112,7 +112,7 @@
    "category": "Grossrat",
    "depth": "quick",
    "sources": [
-    "mcp:data-bs",
+    "mcp:grossrat",
     "web"
    ],
    "languages": [
@@ -258,6 +258,118 @@
     "Keine erfundenen Zahlen; Zahlen stimmen mit der Quelle überein",
     "Erklärungen stammen aus amtlichen Publikationen und sind als solche belegt",
     "Weist methodische Brüche aus, falls vorhanden"
+   ]
+  },
+  {
+   "id": "DE-G4",
+   "category": "Grossrat",
+   "depth": "deep",
+   "sources": [
+    "mcp:grossrat",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Wie hat der Grosse Rat Basel-Stadt 2021 und 2022 die kantonale Volksinitiative «für ein klimagerechtes Basel» (Klimagerechtigkeitsinitiative) behandelt? Womit begründete der Regierungsrat seinen Gegenvorschlag, was änderte die Umwelt-, Verkehrs- und Energiekommission daran und warum, welche Positionen vertraten die Fraktionen in der Debatte vom 14. September 2022, und welche Folgegeschäfte zur Umsetzung sind bekannt?",
+   "criteria": [
+    "Nennt Geschäftsnummer, Dokumente und Daten des Verfahrens (Bericht des Regierungsrates, Kommissionsbericht, Grossratsbeschluss, Volksabstimmung)",
+    "Gibt die Begründung des Regierungsrates und die Änderungen der Kommission samt deren Begründung aus den Originaldokumenten wieder (nicht aus Medienberichten)",
+    "Gibt die Positionen der Fraktionen und die Abstimmungsergebnisse aus dem Wortprotokoll mit Fundstelle wieder",
+    "Weist Folgegeschäfte zur Umsetzung mit Status und Frist aus"
+   ]
+  },
+  {
+   "id": "DE-G5",
+   "category": "Grossrat",
+   "depth": "standard",
+   "sources": [
+    "mcp:grossrat",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Der Grosse Rat hat am 17. Januar 2024 mehrere Vorstösse zur Anpassung der Wohnschutzbestimmungen dem Regierungsrat zur Stellungnahme überwiesen. Was beantragte der Regierungsrat jeweils, wie entschied der Grosse Rat im Juni 2024, und wie weit ist die Umsetzung gemäss den Berichten des Regierungsrates, einschliesslich Fristen und Fristverlängerungen?",
+   "criteria": [
+    "Identifiziert alle zusammengehörenden Vorstösse mit Geschäftsnummer und Datum",
+    "Stellt den Antrag des Regierungsrates und den Beschluss des Grossen Rates je Vorstoss gegenüber (Motion, Anzug, Nichtüberweisung)",
+    "Gibt den Stand der Umsetzung und die geltenden Fristen je Vorstoss aus den Berichten des Regierungsrates wieder",
+    "Erkennt die gegenseitigen Abhängigkeiten, die der Regierungsrat für die Revision des Wohnraumfördergesetzes nennt"
+   ]
+  },
+  {
+   "id": "DE-G6",
+   "category": "Grossrat",
+   "depth": "quick",
+   "sources": [
+    "mcp:grossrat",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Welche Kredite hat der Regierungsrat für die Umsetzung der Motion zur integralen Signalisation von Tempo 30 in Basel-Stadt (Geschäft 21.5840) beantragt bzw. der Grosse Rat bewilligt, und welche Fristen und Mengengerüste (Strassenlänge, Umsetzungsdauer) nennen die Ausgabenberichte von 2024 und 2026?",
+   "criteria": [
+    "Nennt die Geschäfte (21.5840, 24.0774, 25.2044) mit Datum und Status",
+    "Weist Kostenangaben mit Quelle, Datum und Verwendungszweck aus und unterscheidet bewilligte von beantragten Krediten",
+    "Gibt Fristen der Motion samt Fristerstreckung und die vom Regierungsrat genannte Umsetzungsdauer des Zielnetzes korrekt wieder"
+   ]
+  },
+  {
+   "id": "DE-G7",
+   "category": "Grossrat",
+   "depth": "deep",
+   "sources": [
+    "mcp:grossrat",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Wie verlief die Beratung der Lohnmassnahmen zur Steigerung der Arbeitgeberattraktivität des Kantons Basel-Stadt (inklusive Ablösung der Arbeitsmarktzulage der Kantonspolizei) und der Teilrevision des Lohngesetzes 2025 und 2026? Was beantragte der Regierungsrat inklusive Kosten, wie weicht der Antrag der Wirtschafts- und Abgabekommission (Mehrheit und Minderheit) davon ab, und was beschloss der Grosse Rat im April und Mai 2026 und warum in dieser Reihenfolge?",
+   "criteria": [
+    "Nennt Geschäftsnummern, Dokumente und Daten (Ratschlag, Kommissionsbericht, Beschlüsse, Bericht des Ratsbüros)",
+    "Stellt Massnahmen und Kostenangaben des Regierungsrates und der Kommissionsmehrheit gegenüber und weist Kostenangaben mit Quelle und Stand aus",
+    "Gibt die Begründung der Kommissionsmehrheit und die Haltung der Kommissionsminderheit aus dem Kommissionsbericht wieder",
+    "Erklärt den Ablauf der Beschlussfassung im Grossen Rat (Abstimmung vom 22. April 2026, Aufhebung, erneute Beschlussfassung am 20. Mai 2026) anhand der Beschlüsse und des Berichts des Ratsbüros"
+   ]
+  },
+  {
+   "id": "DE-G8",
+   "category": "Grossrat",
+   "depth": "quick",
+   "sources": [
+    "mcp:grossrat",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Wie ist der Stand der kantonalen Volksinitiative «Für mehr Geld im Portemonnaie (Kaufkraft-Initiative)» im Grossen Rat Basel-Stadt gemäss den veröffentlichten Dokumenten bis September 2026? Nenne die wesentlichen Daten und Fristen und die vom Regierungsrat geschätzten finanziellen Folgen.",
+   "criteria": [
+    "Nennt Geschäftsnummer sowie Daten zu Zustandekommen, Zulässigkeitsbeschluss und Fristen",
+    "Weist die vom Regierungsrat geschätzten Mindereinnahmen mit Quelle und Stand aus",
+    "Gibt den Antrag des Regierungsrates auf Fristverlängerung samt Begründung und Verknüpfung mit einem weiteren Vorstoss korrekt wieder"
+   ]
+  },
+  {
+   "id": "DE-G9",
+   "category": "Grossrat",
+   "depth": "standard",
+   "sources": [
+    "mcp:grossrat",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Wie viele Lehrpersonen unterrichten an den Basler Schulen ohne anerkanntes Lehrdiplom, wie hat sich ihr Anteil in den Schuljahren 2021/22 bis 2023/24 entwickelt, und was hat der Regierungsrat dazu in seinen Antworten auf Vorstösse von 2022 bis 2024 ausgeführt? Hat der Regierungsrat das mit dem Anzug betreffend Monitoring von Lehr- und Fachpersonen (Geschäft 22.5306) verlangte Monitoring geliefert?",
+   "criteria": [
+    "Nennt die einschlägigen Vorstösse mit Geschäftsnummer und Datum der Antworten des Regierungsrates",
+    "Weist Zahlen und Anteile je Schulstufe mit Quelle, Stichtag und Schuljahr aus und weist auf unterschiedliche Erhebungsbasen hin",
+    "Gibt die vom Regierungsrat genannten Massnahmen und Begleitung für Lehrpersonen ohne anerkanntes Diplom aus den Antworten wieder",
+    "Beurteilt anhand des Berichts des Regierungsrates, ob der Anzug erfüllt ist, und nennt Status und Frist"
    ]
   }
  ]

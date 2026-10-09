@@ -3,6 +3,7 @@
 import asyncio
 import json
 import math
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -28,21 +29,31 @@ class Tools:
         body = {"q": q, "num": num, "gl": "ch", "hl": lang if lang in ("de", "fr", "it", "en") else "de"}
         try:
             r = await self.http.post(self.search_url, json=body, headers={"X-API-KEY": self.search_key})
-            return [{"title": o.get("title", ""), "url": o.get("link", ""), "snippet": o.get("snippet", "")}
+            return [{"title": o.get("title", ""), "url": o.get("link", ""), "snippet": o.get("snippet", ""),
+                     "date": o.get("date", "")}
                     for o in (r.json().get("organic") or []) if o.get("link")]
         except (httpx.HTTPError, ValueError):
             return []
 
     async def fetch(self, url: str) -> tuple[str, str]:
         """Returns (title, markdown); empty markdown if the page could not be fetched."""
+        title, text, _ = await self.fetch_meta(url)
+        return title, text
+
+    async def fetch_meta(self, url: str) -> tuple[str, str, str]:
+        """Returns (title, markdown, date): the date is the page's published/modified date if it states one."""
         try:
             r = await self.http.post(f"{self.firecrawl_url}/v2/scrape",
                                      json={"url": url, "formats": ["markdown"], "onlyMainContent": True},
                                      headers={"Authorization": f"Bearer {self.firecrawl_key}"})
             data = r.json().get("data") or {}
-            return (data.get("metadata") or {}).get("title", ""), data.get("markdown") or ""
+            meta = data.get("metadata") or {}
+            date = next((str(meta[k]) for k in ("modifiedTime", "article:modified_time", "dcterms.modified",
+                                                 "publishedTime", "article:published_time", "dcterms.date", "date")
+                         if meta.get(k) and isinstance(meta.get(k), str)), "")
+            return meta.get("title", "") if isinstance(meta.get("title", ""), str) else "", data.get("markdown") or "", date
         except (httpx.HTTPError, ValueError):
-            return "", ""
+            return "", "", ""
 
 
 async def focus(llm, text: str, queries: list[str], budget_chars: int = 8000, chunk: int = 1200) -> str:
@@ -67,25 +78,47 @@ async def focus(llm, text: str, queries: list[str], budget_chars: int = 8000, ch
 
 
 class MCPClient:
-    """Minimal streamable-HTTP MCP client (initialize, tools/list, tools/call), sync httpx in a thread."""
+    """Minimal streamable-HTTP MCP client (initialize, tools/list, tools/call), sync httpx in a thread.
+    Every request is retried on 5xx and connection errors (the Grossrat server answers 503 now and then),
+    and the session is re-opened when the server forgets it (404)."""
+
+    RETRIES = 6
 
     def __init__(self, url: str, allow: list[str] | None = None, timeout: float = 120):
         self.url, self.allow = url, set(allow or [])
         self.http = httpx.Client(timeout=timeout, headers={"Accept": "application/json, text/event-stream",
                                                            "Content-Type": "application/json"})
         self._id = 0
+        self._tools = None
+        self._open()
+
+    def _open(self) -> None:
+        self.http.headers.pop("mcp-session-id", None)
         r = self._post("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
-                                      "clientInfo": {"name": "research-agent", "version": "0.1"}})
+                                      "clientInfo": {"name": "research-agent", "version": "0.2"}}, reopen=False)
         if sid := r.headers.get("mcp-session-id"):
             self.http.headers["mcp-session-id"] = sid
         self.http.post(self.url, json={"jsonrpc": "2.0", "method": "notifications/initialized"})
-        self._tools = None
 
-    def _post(self, method: str, params: dict):
-        self._id += 1
-        r = self.http.post(self.url, json={"jsonrpc": "2.0", "id": self._id, "method": method, "params": params})
-        r.raise_for_status()
-        return r
+    def _post(self, method: str, params: dict, reopen: bool = True):
+        for attempt in range(self.RETRIES):
+            self._id += 1
+            try:
+                r = self.http.post(self.url, json={"jsonrpc": "2.0", "id": self._id, "method": method, "params": params})
+            except httpx.TransportError:
+                if attempt == self.RETRIES - 1:
+                    raise
+                time.sleep(3 * (attempt + 1))
+                continue
+            if r.status_code == 404 and reopen and "mcp-session-id" in self.http.headers:
+                self._open()
+                continue
+            if r.status_code >= 500 and attempt < self.RETRIES - 1:
+                time.sleep(3 * (attempt + 1))     # 3+6+...+15 s: rides out a container restart
+                continue
+            r.raise_for_status()
+            return r
+        raise RuntimeError(f"MCP {method}: no answer after {self.RETRIES} attempts")
 
     def _rpc(self, method: str, params: dict):
         r = self._post(method, params)
@@ -103,8 +136,16 @@ class MCPClient:
         return self._tools
 
     def call(self, name: str, arguments: dict) -> str:
-        res = self._rpc("tools/call", {"name": name, "arguments": arguments})
-        return "\n".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text")
+        """Tool result as text. A result flagged isError is raised (and retried once: the Grossrat server
+        reports transient overload this way), so it never becomes a source."""
+        for attempt in range(2):
+            res = self._rpc("tools/call", {"name": name, "arguments": arguments})
+            text = "\n".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text")
+            if not res.get("isError"):
+                return text
+            if attempt == 0:
+                time.sleep(3)
+        raise RuntimeError(f"{name}: {text[:300]}")
 
     async def acall(self, name: str, arguments: dict) -> str:
         return await asyncio.to_thread(self.call, name, arguments)

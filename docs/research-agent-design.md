@@ -57,6 +57,44 @@ Sources for every design decision:
  output: Markdown report, sources, evidence trail (JSON: queries, URLs, cards, decisions), tokens
 ```
 
+## Focus engine (v4, administrative presets)
+
+The pipeline above writes more text than its evidence carries on administrative questions (German set: 48%
+vs 55% for a plain tool loop). Presets with `engine: focus` (rechtsrecherche, grossrat, statistik,
+verwaltung_web) therefore run a bounded tool-calling loop ([research_agent/focus.py](../research_agent/focus.py)),
+and code adds the citation layer:
+
+```
+ plan (same PLAN call; the approved plan is the checklist and the report structure)
+ loop, ≤ focus_calls tool calls (quick 8, standard 14, deep 20), model "think":
+   tools: web_search, fetch_page (focus passages ≤6k chars), MCP tools of the preset (allowlist)
+   every result item is registered as a Source {id S12, url, title, date/Stand, text seen}
+     web: one source per hit (Serper date), fetched pages add their text and date
+     MCP JSON (grossrat, data.bs, statistik): every object with a URL key becomes a source
+       (citation_url, pdf_url, url_ges, url, portal_url); data.bs dataset → dataset page
+     MCP text (opencaselaw): one source per list item / per document, best link first
+       (gesetzessammlung, fedlex, grosserrat, decision page); never the MCP endpoint
+   the model sees "[S12]" next to each item and cites IDs only
+ final answer: the report (Zusammenfassung, sections, Offene Punkte) with [S..] citations
+ code: unknown IDs removed · numbers checked against the cited sources (tolerant: decimal comma,
+   thousands separators, dates in de/fr/it/en, rounding, scale words; task numbers and counts ≤12 exempt)
+   · not in the cited source but in another → citation re-pointed · in no source at all → the cited
+   sentence is dropped, a table row marked "nicht belegt" · uncited sentences are never dropped, only
+   given a citation when one source has all their numbers · SR → SG for cantonal numbers found in the
+   evidence · numbered source list with title, URL, Stand and fetch date
+```
+
+Text checks shared by both engines live in [research_agent/text.py](../research_agent/text.py), source
+records in [research_agent/sources.py](../research_agent/sources.py). The pipeline (web_survey) uses the same
+number check; v3's rule "drop every sentence whose citation fails" is undone: a failed entailment check
+removes the citation, only the "number in no card at all" signal removes a sentence.
+
+Future option, not built: a small decision model (e.g. a Liquid or diffusion-based classifier) for the
+yes/no steps that are now regex or a Gemma call: triage of search hits, "does this quote support this
+sentence", "is this result a primary source". The places are marked by `verify`, `_find_source` and the
+triage step. Sentence splitting is regex with an abbreviation list; spaCy's rule-based sentencizer splits
+at "Art. 13" and "Abs. 4", its trained German parser would need a model package in the image.
+
 ## Data model
 
 ```python

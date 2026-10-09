@@ -116,22 +116,26 @@ const DATA = /*__DATA__*/null;
 const SETS = {drb: "DeepResearch Bench (EN)", de: "German admin set"};
 const REF = "reference (Gemini DR)";
 const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)"];
-const ORDER = ["gpt-researcher", "nvidia-dra", "baseline-agent", "baseline-nosearch", REF];
-const cands = [...DATA.candidates].sort((a, b) => (ORDER.indexOf(a) + 99 * (ORDER.indexOf(a) < 0)) - (ORDER.indexOf(b) + 99 * (ORDER.indexOf(b) < 0)));
-const color = c => COLORS[cands.indexOf(c) % COLORS.length];
+const FEAT = DATA.featured || [];
+const ALL = [...FEAT, ...DATA.candidates.filter(c => !FEAT.includes(c))];
+const color = c => COLORS[ALL.indexOf(c) % COLORS.length];
+const label = c => (DATA.labels || {})[c] || c;
 const GATES = {race: 43, acc: 60, eff: 20, tokMed: 1e6, runtimeMin: 20};
 
-let st = {set: "drb", id: null, a: "gpt-researcher", b: "nvidia-dra", tabA: "report", tabB: "report"};
-try { Object.assign(st, JSON.parse(localStorage.getItem("drv") || "{}")); } catch (e) {}
-const save = () => { try { localStorage.setItem("drv", JSON.stringify(st)); } catch (e) {} };
+let st = {set: "de", id: null, a: FEAT[0], b: FEAT[2] || FEAT[1], tabA: "report", tabB: "report", repA: 0, repB: 0, all: false};
+try { Object.assign(st, JSON.parse(localStorage.getItem("drv2") || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem("drv2", JSON.stringify(st)); } catch (e) {} };
+const visible = () => st.all ? ALL : FEAT;
 
-const cell = (c, set, id) => DATA.cells[`${c}|${set}|${id}`];
+const reps = (c, set, id) => DATA.cells[`${c}|${set}|${id}`]?.reps || [];
 const tasksOf = set => DATA.tasks.filter(t => t.set === set);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, ch => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[ch]));
 const fmtTok = n => n == null ? "–" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n);
 const median = xs => { const s = xs.filter(x => x != null).sort((a, b) => a - b); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 const mean = xs => { const s = xs.filter(x => x != null); return s.length ? s.reduce((a, b) => a + b, 0) / s.length : null; };
 const cls = (ok) => ok == null ? "" : ok ? "good" : "bad";
+const scoreOf = (x, set) => set === "drb" ? x.race?.overall_score : x.rubric?.pct;
+const webSearches = x => x.run?.searches;
 
 function md(text) {
   if (window.marked && window.DOMPurify) {
@@ -144,40 +148,45 @@ function md(text) {
 function renderTabs() {
   const el = document.getElementById("setTabs");
   el.innerHTML = Object.entries(SETS).map(([k, v]) =>
-    `<button role="tab" aria-selected="${st.set === k}" data-set="${k}">${v}</button>`).join("");
+    `<button role="tab" aria-selected="${st.set === k}" data-set="${k}">${v}</button>`).join("") +
+    `<label class="hint" style="margin-left:12px"><input type="checkbox" id="showAll" ${st.all ? "checked" : ""}> show all experiments (${ALL.length - FEAT.length} more)</label>`;
   el.querySelectorAll("button").forEach(b => b.onclick = () => { st.set = b.dataset.set; st.id = null; save(); render(); });
+  document.getElementById("showAll").onchange = e => { st.all = e.target.checked; save(); render(); };
 }
 
 function aggregate(c, set) {
   const ts = tasksOf(set);
-  const cs = ts.map(t => cell(c, set, t.id)).filter(Boolean);
-  const reports = cs.filter(x => x.article).length;
+  const per = ts.map(t => reps(c, set, t.id)).filter(r => r.length);
+  const all = per.flat();
+  const reports = all.filter(x => x.article).length;
   if (!reports) return null;
-  const sup = cs.reduce((a, x) => a + (x.fact?.supported || 0), 0), chk = cs.reduce((a, x) => a + (x.fact?.checked || 0), 0);
-  const factN = cs.filter(x => x.fact).length;
+  const sup = all.reduce((a, x) => a + (x.fact?.supported || 0), 0), chk = all.reduce((a, x) => a + (x.fact?.checked || 0), 0);
+  const factN = all.filter(x => x.fact).length;
+  const runs = Math.max(...per.map(r => r.length));
+  // a score per run = mean over its tasks; shown as mean of runs and the single runs
+  const runScores = [...Array(runs).keys()].map(i => mean(per.map(r => r[i] && scoreOf(r[i], set))));
   return {
-    reports, judged: cs.filter(x => x.race || x.rubric).length,
-    race: mean(cs.map(x => x.race?.overall_score)),
+    tasks: per.filter(r => r.some(x => x.article)).length, runs, runScores,
+    score: mean(per.map(r => mean(r.map(x => scoreOf(x, set))))),
     acc: chk ? 100 * sup / chk : null, eff: factN ? sup / factN : null,
-    tok: median(cs.map(x => x.run?.total_tokens)), rt: median(cs.map(x => x.run?.runtime_s)),
-    searches: median(cs.map(x => x.run?.searches)),
-    errors: cs.filter(x => x.run?.status === "error").length,
-    rubric: mean(cs.map(x => x.rubric?.pct)),
+    tok: median(all.map(x => x.run?.total_tokens)), rt: median(all.map(x => x.run?.runtime_s)),
+    web: mean(all.map(webSearches)), mcp: mean(all.map(x => x.counts?.mcp)), fetch: mean(all.map(x => x.counts?.fetch)),
+    errors: all.filter(x => x.run?.status === "error").length,
   };
 }
 
 function renderOverview() {
-  const rows = cands.map(c => [c, aggregate(c, st.set)]).filter(([, a]) => a);
+  const rows = visible().map(c => [c, aggregate(c, st.set)]).filter(([, a]) => a);
   const isDrb = st.set === "drb";
-  const head = isDrb
-    ? "<th>Approach</th><th>Reports</th><th>Judged</th><th>RACE</th><th>Cit. acc.</th><th>Eff. cit.</th><th>Tokens (median)</th><th>Runtime (median)</th><th>Searches</th><th>Errors</th>"
-    : "<th>Approach</th><th>Reports</th><th>Judged</th><th>Rubric</th><th>Tokens (median)</th><th>Runtime (median)</th><th>Searches</th><th>Errors</th>";
+  const head = `<th>Approach</th><th>Tasks</th><th>Runs</th><th>${isDrb ? "RACE" : "Rubric"}</th>${isDrb ? "<th>Cit. acc.</th><th>Eff. cit.</th>" : ""}<th>Tokens (median)</th><th>Runtime (median)</th><th title="Serper web searches through the gateway, mean per report">Web searches (mean)</th><th title="MCP tool calls (Grossrat, data.bs, opencaselaw), mean per report">MCP calls (mean)</th><th title="pages read, mean per report">Fetches (mean)</th><th>Errors</th>`;
+  const f = (v, d = 0) => v == null ? "–" : (+v).toFixed(d);
   const body = rows.map(([c, a]) => {
-    const name = `<td><span class="chip" style="--cc:${color(c)}">${esc(c)}</span></td>`;
-    const common = `<td>${fmtTok(a.tok)}</td><td>${a.rt == null ? "–" : (a.rt / 60).toFixed(1) + " min"}</td><td>${a.searches ?? "–"}</td><td>${a.errors || ""}</td>`;
-    return isDrb
-      ? `<tr>${name}<td>${a.reports}</td><td>${a.judged}</td><td class="${c === REF ? "" : cls(a.race == null ? null : a.race >= GATES.race)}">${a.race == null ? "–" : a.race.toFixed(1)}</td><td>${a.acc == null ? "–" : a.acc.toFixed(1) + "%"}</td><td>${a.eff == null ? "–" : a.eff.toFixed(1)}</td>${common}</tr>`
-      : `<tr>${name}<td>${a.reports}</td><td>${a.judged}</td><td>${a.rubric == null ? "–" : a.rubric.toFixed(1) + "%"}</td>${common}</tr>`;
+    const runs = a.runs > 1 ? ` <span class="hint">(${a.runScores.map(x => f(x, 1)).join(" / ")})</span>` : "";
+    const sc = a.score == null ? "–" : a.score.toFixed(1) + (isDrb ? "" : "%");
+    return `<tr><td><span class="chip" style="--cc:${color(c)}">${esc(label(c))}</span></td><td>${a.tasks}</td><td>${a.runs}</td>` +
+      `<td class="${isDrb && c !== REF && a.score != null ? cls(a.score >= GATES.race) : ""}">${sc}${runs}</td>` +
+      (isDrb ? `<td>${a.acc == null ? "–" : a.acc.toFixed(1) + "%"}</td><td>${f(a.eff, 1)}</td>` : "") +
+      `<td>${fmtTok(a.tok)}</td><td>${a.rt == null ? "–" : (a.rt / 60).toFixed(1) + " min"}</td><td>${f(a.web, 1)}</td><td>${f(a.mcp, 1)}</td><td>${f(a.fetch, 1)}</td><td>${a.errors || ""}</td></tr>`;
   }).join("");
   document.getElementById("overview").innerHTML = rows.length
     ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
@@ -185,10 +194,12 @@ function renderOverview() {
 }
 
 function chipFor(c, t) {
-  const x = cell(c, t.set, t.id);
-  if (!x || !x.article) return x?.run?.status === "error" ? `<span class="chip" style="--cc:${color(c)}" title="${esc(c)}: error">err</span>` : "";
-  const v = t.set === "drb" ? x.race?.overall_score : x.rubric?.pct;
-  return `<span class="chip ${v == null ? "missing" : ""}" style="--cc:${color(c)}" title="${esc(c)}">${v == null ? "•" : v.toFixed(0)}</span>`;
+  const rs = reps(c, t.set, t.id).filter(x => x.article);
+  if (!rs.length) return "";
+  const vals = rs.map(x => scoreOf(x, t.set)).filter(v => v != null);
+  const v = mean(vals);
+  const tip = `${label(c)}${vals.length > 1 ? ": " + vals.map(x => x.toFixed(0)).join(" / ") : ""}`;
+  return `<span class="chip ${v == null ? "missing" : ""}" style="--cc:${color(c)}" title="${esc(tip)}">${v == null ? "•" : v.toFixed(0)}</span>`;
 }
 
 function renderList() {
@@ -198,7 +209,7 @@ function renderList() {
   el.innerHTML = ts.map(t => `<div class="task" tabindex="0" role="button" aria-current="${t.id === st.id}" data-id="${esc(t.id)}">
       <span class="tid">${esc(t.set.toUpperCase())} ${esc(t.id)}${t.category ? " · " + esc(t.category) : ""}</span>
       <span class="tp">${esc(t.prompt)}</span>
-      <span class="chips">${cands.filter(c => c !== REF).map(c => chipFor(c, t)).join("")}</span></div>`).join("");
+      <span class="chips">${visible().filter(c => c !== REF).map(c => chipFor(c, t)).join("")}</span></div>`).join("");
   el.querySelectorAll(".task").forEach(d => {
     const go = () => { st.id = d.dataset.id; save(); render(); };
     d.onclick = go; d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
@@ -208,32 +219,38 @@ function renderList() {
 function metric(k, v, c = "") { return `<div class="m"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`; }
 
 function paneHtml(c, t, side) {
-  const x = cell(c, t.set, t.id) || {};
+  const rs = reps(c, t.set, t.id);
+  const ri = Math.min(side === "a" ? st.repA : st.repB, Math.max(0, rs.length - 1));
+  const x = rs[ri] || {};
   const tab = side === "a" ? st.tabA : st.tabB;
   const r = x.run || {}, f = x.fact, race = x.race, rub = x.rubric;
   let m = "";
+  const all = rs.map(y => scoreOf(y, t.set)).filter(v => v != null);
   if (t.set === "drb") {
     m += metric("RACE", race ? race.overall_score.toFixed(1) : "–", race && c !== REF ? cls(race.overall_score >= GATES.race) : "");
+    if (all.length > 1) m += metric("RACE, mean of runs", mean(all).toFixed(1));
     m += metric("Cit. acc.", f?.accuracy != null ? f.accuracy + "%" : "–", f?.accuracy != null ? cls(f.accuracy >= GATES.acc) : "");
     m += metric("Supported", f ? `${f.supported}/${f.checked}` : "–");
   } else {
     m += metric("Rubric", rub ? rub.pct + "%" : "–");
-    m += metric("ß", rub ? rub.eszett : "–", rub ? cls(rub.eszett === 0) : "");
+    if (all.length > 1) m += metric("Mean of runs", mean(all).toFixed(1) + "%");
     m += metric("URLs", rub ? rub.cited_urls : "–");
   }
   if (c !== REF) {
     m += metric("Tokens", fmtTok(r.total_tokens), r.total_tokens ? cls(r.total_tokens <= GATES.tokMed) : "");
-    m += metric("Runtime", r.runtime_s != null ? (r.runtime_s / 60).toFixed(1) + " min" : "–", r.runtime_s != null ? cls(r.runtime_s / 60 <= GATES.runtimeMin) : "");
-    m += metric("LLM calls", r.llm_calls ?? "–");
-    m += metric("Searches", r.searches ?? "–");
+    m += metric("Runtime", r.runtime_s != null ? (r.runtime_s / 60).toFixed(1) + " min" : "–");
+    m += metric("Web searches", r.searches ?? "–");
+    m += metric("MCP calls", x.counts?.mcp ?? "–");
+    m += metric("Fetches", x.counts?.fetch ?? "–");
   }
   m += metric("Length", x.article ? Math.round(x.article.length / 1000) + "k chars" : "–");
-  const tabs = [["report", "Report"], ["citations", "Citations"], ["searches", "Searches"], ["judge", "Judge"]]
+  const tabs = [["report", "Report"], ["citations", "Citations"], ["tools", "Tools"], ["judge", "Judge"]]
     .filter(([k]) => c !== REF || k === "report");
-  const opts = cands.map(o => `<option ${o === c ? "selected" : ""}>${esc(o)}</option>`).join("");
+  const opts = [...new Set([...visible(), c])].map(o => `<option value="${esc(o)}" ${o === c ? "selected" : ""}>${esc(label(o))}</option>`).join("");
+  const repSel = rs.length > 1 ? `<select data-rep="${side}" aria-label="Run">${rs.map((y, i) => `<option value="${i}" ${i === ri ? "selected" : ""}>${esc(y.rep)}${scoreOf(y, t.set) != null ? " · " + scoreOf(y, t.set).toFixed(0) : ""}</option>`).join("")}</select>` : "";
   return `<section class="pane" style="--cc:${color(c)}">
     <div class="pane-h">
-      <label><span class="hint">${side.toUpperCase()} </span><select data-side="${side}" aria-label="Approach ${side.toUpperCase()}">${opts}</select></label>
+      <label><span class="hint">${side.toUpperCase()} </span><select data-side="${side}" aria-label="Approach ${side.toUpperCase()}">${opts}</select></label> ${repSel}
       <div class="metrics">${m}</div>
       <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${tab === k}" data-side="${side}" data-tab="${k}">${l}</button>`).join("")}</div>
     </div>
@@ -252,9 +269,11 @@ function body(c, t, x, tab) {
       cits.map(ci => `<div class="cit"><a href="${esc(ci.url)}" target="_blank" rel="noopener noreferrer">${esc(ci.url)}</a>
         <ul>${ci.facts.map((fa, i) => `<li><span class="vb v-${esc(ci.verdicts[i] || "unknown")}">${esc(ci.verdicts[i] || "–")}</span>${esc(fa)}</li>`).join("")}</ul></div>`).join("");
   }
-  if (tab === "searches") {
-    const s = x.searches || [];
-    return s.length ? `<ol class="searches">${s.map(q => `<li>${esc(q.q)} <span class="hint">(${q.n} results${q.api === "tavily" ? ", tavily" : ""})</span></li>`).join("")}</ol>` : `<p class="empty">No searches logged.</p>`;
+  if (tab === "tools") {
+    const s = x.searches || [], calls = (x.tools || []).filter(k => k.tool !== "web_search");
+    const searches = s.length ? `<h4>Web searches (${s.length})</h4><ol class="searches">${s.map(q => `<li>${esc(q.q)} <span class="hint">(${q.n} results${q.api === "tavily" ? ", tavily" : ""})</span></li>`).join("")}</ol>` : `<p class="empty">No web searches logged.</p>`;
+    const tools = calls.length ? `<h4>MCP calls and page reads (${calls.length})</h4><ol class="searches">${calls.map(k => `<li><code>${esc(k.tool)}</code> <span class="hint">${esc(JSON.stringify(k.args || {}).slice(0, 220))}${k.sources ? ` · ${k.sources} sources` : ""}</span>${k.error ? ` <span class="err">${esc(k.error.slice(0, 160))}</span>` : ""}</li>`).join("")}</ol>` : "";
+    return searches + tools;
   }
   if (tab === "judge") {
     if (t.set === "drb") {
@@ -278,7 +297,8 @@ function renderDetail() {
   const crit = t.criteria ? `<ul>${t.criteria.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : "";
   el.innerHTML = `<div class="prompt"><div class="meta">${esc(t.set.toUpperCase())} ${esc(t.id)} · ${esc(t.language)} · depth ${esc(t.depth)} · sources ${esc((t.sources || []).join(", "))}</div><p>${esc(t.prompt)}</p>${crit}</div>
     <div class="panes ${st.a === st.b ? "single" : ""}">${paneHtml(st.a, t, "a")}${st.a === st.b ? "" : paneHtml(st.b, t, "b")}</div>`;
-  el.querySelectorAll("select[data-side]").forEach(s => s.onchange = () => { st[s.dataset.side] = s.value; save(); renderDetail(); });
+  el.querySelectorAll("select[data-side]").forEach(s => s.onchange = () => { st[s.dataset.side] = s.value; st[s.dataset.side === "a" ? "repA" : "repB"] = 0; save(); renderDetail(); });
+  el.querySelectorAll("select[data-rep]").forEach(s => s.onchange = () => { st[s.dataset.rep === "a" ? "repA" : "repB"] = +s.value; save(); renderDetail(); });
   el.querySelectorAll("button[data-tab]").forEach(b => b.onclick = () => { st[b.dataset.side === "a" ? "tabA" : "tabB"] = b.dataset.tab; save(); renderDetail(); });
 }
 
@@ -286,9 +306,9 @@ function render() {
   renderTabs(); renderOverview(); renderList(); renderDetail();
   document.documentElement.style.setProperty("--header-h", document.getElementById("hdr").offsetHeight + "px");
 }
-document.getElementById("built").textContent = `${Object.keys(DATA.cells).length} results · pick two approaches to compare`;
-if (!cands.includes(st.a)) st.a = cands[0];
-if (!cands.includes(st.b)) st.b = cands[1] || cands[0];
+document.getElementById("built").textContent = `${ALL.length - 1} approaches · repeats merged · pick two to compare`;
+if (!ALL.includes(st.a)) st.a = FEAT[0];
+if (!ALL.includes(st.b)) st.b = FEAT[1] || FEAT[0];
 render();
 window.addEventListener("resize", () => document.documentElement.style.setProperty("--header-h", document.getElementById("hdr").offsetHeight + "px"));
 </script>

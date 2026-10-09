@@ -26,6 +26,10 @@ def research_agent(task: Task, tag: str, variant: dict | None = None) -> dict:
     for name, value in (variant.get("budget") or {}).items():   # budget overrides for tuning
         for b in cfg.budgets.values():
             setattr(b, name, value)
+    for name, over in (variant.get("preset_overrides") or {}).items():   # preset overrides for tuning
+        p = cfg.presets[name]
+        for k, v in over.items():
+            setattr(p, k, {**getattr(p, k), **v} if isinstance(v, dict) else v)
     llm = LLM(base_url=f"{METER_URL}/v1", api_key=meter_key(tag))
     tools = Tools(search_url=f"{METER_URL}/serper/search", search_key=meter_key(tag),
                   firecrawl_url=FIRECRAWL_URL, firecrawl_key=os.environ.get("FIRECRAWL_API_KEY", ""))

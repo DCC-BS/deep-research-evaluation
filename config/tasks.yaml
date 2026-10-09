@@ -29,3 +29,7 @@ mcp:
   data-bs:
     url: https://mcp.data.bs.ch/mcp
     allow: [get_datasets, get_dataset, get_records, get_facets]
+  grossrat:
+    url: https://mcp-grosserrat.statistik.bs.ch/mcp
+    # the search/fetch pair duplicates search_documents/get_document; the graph tools are not needed here
+    allow: [find_geschaefte, search_documents, get_geschaeft, get_document, list_facets]

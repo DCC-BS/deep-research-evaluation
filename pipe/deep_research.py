@@ -114,9 +114,10 @@ class Pipe:
                     job = await self._api("POST", "/jobs", {"draft_id": st["draft"], "user_id": __user__.get("id", "?"),
                                                             "chat_id": __chat_id__, "message_id": __message_id__, "when": when})
                     st = {"state": "job", "job": job["job_id"]}
-                    if when == "night":
-                        return (f"Auftrag eingereiht für das Nachtfenster ({job['window']}). Der Bericht erscheint in "
-                                "diesem Chat, sobald er fertig ist." + _marker(st))
+                    if job.get("when", when) == "night":   # the service decides: by day only quick focus runs
+                        why = (" Tagsüber laufen nur schnelle Recherchen (Tiefe quick) sofort." if when == "now" else "")
+                        return (f"Auftrag eingereiht für das Nachtfenster ({job['window']}).{why} Der Bericht erscheint "
+                                "in diesem Chat, sobald er fertig ist." + _marker(st))
                     return await self._stream(job["job_id"], status) + _marker(st)
                 if st.get("edits", 0) >= 3:
                     return "Der Plan wurde bereits dreimal angepasst. Bitte mit **ok** starten oder neu beginnen." + _marker(st)
