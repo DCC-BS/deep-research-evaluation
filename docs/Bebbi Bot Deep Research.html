@@ -1,0 +1,340 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Bebbi Bot Deep Research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (max 1120px) — spec header, decision grid, weighted rubric, requirement tables, candidates, task list */
+:root {
+  --bg: #f4f6f5; --surface: #ffffff; --fg: #18211e; --muted: #5a6762; --line: #d6ddd9;
+  --accent: #0d6a5a; --accent-soft: #e1efeb;
+  --must: #a3302a; --must-bg: #f8e4e2; --should: #7d5a00; --should-bg: #f6edd4; --could: #4c5a63; --could-bg: #e5eaed;
+  --done: #2f6b2a; --done-bg: #e2f0de; --run: #1d5a8a; --run-bg: #dfeaf4;
+  --f-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121715; --surface: #1a211e; --fg: #e3e9e6; --muted: #9aa8a2; --line: #2e3833;
+  --accent: #5cc4ae; --accent-soft: #1d3530;
+  --must: #f0938b; --must-bg: #3a1f1d; --should: #e5c06a; --should-bg: #352c15; --could: #b0bec7; --could-bg: #262e33;
+  --done: #9fd396; --done-bg: #1f3220; --run: #8fc0ea; --run-bg: #1a2a38; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #1a211e; --fg: #e3e9e6; --muted: #9aa8a2; --line: #2e3833;
+  --accent: #5cc4ae; --accent-soft: #1d3530;
+  --must: #f0938b; --must-bg: #3a1f1d; --should: #e5c06a; --should-bg: #352c15; --could: #b0bec7; --could-bg: #262e33;
+  --done: #9fd396; --done-bg: #1f3220; --run: #8fc0ea; --run-bg: #1a2a38; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--f-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; display: flex; flex-direction: column; gap: 48px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 650; text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(30px, 5vw, 44px); }
+h2 { font-size: 26px; display: flex; align-items: baseline; gap: 12px; }
+h3 { font-size: 18px; }
+p { margin: 0; max-width: 70ch; }
+code { font-family: var(--f-mono); font-size: 0.88em; background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+header { display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+.lede { font-size: 17px; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; font: 13px var(--f-mono); color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 500; }
+section { display: flex; flex-direction: column; gap: 16px; }
+.letter { font: 500 15px/1 var(--f-mono); color: var(--accent); border: 1.5px solid var(--accent); border-radius: 4px; padding: 4px 7px; align-self: center; }
+.secnote { font-size: 13px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.cell { background: var(--surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cell .k { font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.cell .v { font-weight: 500; }
+.cell .n { font-size: 13px; color: var(--muted); }
+.weights { display: flex; flex-direction: column; gap: 8px; }
+.wrow { display: grid; grid-template-columns: minmax(150px, 220px) 1fr 44px; gap: 12px; align-items: center; font-size: 14px; }
+.bar { height: 10px; background: var(--accent-soft); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.wrow .pct { font: 500 13px var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.scale { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); }
+.scale b { font-family: var(--f-mono); color: var(--fg); }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+th { text-align: left; font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg); }
+td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.id { font: 500 13px var(--f-mono); white-space: nowrap; }
+td.metric { color: var(--muted); font-size: 13.5px; width: 38%; }
+.pri, .st { display: inline-block; font: 500 11px/1 var(--f-mono); letter-spacing: 0.05em; padding: 4px 7px; border-radius: 3px; white-space: nowrap; }
+.pri.must { color: var(--must); background: var(--must-bg); }
+.pri.should { color: var(--should); background: var(--should-bg); }
+.pri.could { color: var(--could); background: var(--could-bg); }
+.st.done { color: var(--done); background: var(--done-bg); }
+.st.run { color: var(--run); background: var(--run-bg); }
+.st.todo { color: var(--could); background: var(--could-bg); }
+.counts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); }
+.tasks { display: flex; flex-direction: column; gap: 20px; }
+.phase { display: flex; flex-direction: column; gap: 8px; }
+.phase ol { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.phase li { display: grid; grid-template-columns: 84px 1fr; gap: 12px; align-items: baseline; font-size: 14px; }
+.phase li .st { justify-self: start; }
+.open li { margin-bottom: 6px; }
+.open { margin: 0; padding-left: 20px; max-width: 75ch; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; }
+@media (max-width: 560px) { .wrow { grid-template-columns: 1fr 44px; } .wrow .bar { grid-column: 1 / -1; grid-row: 2; } .phase li { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">Requirements and evaluation · v8 · 9 Oct 2026</span>
+  <h1>Deep Research for Bebbi Bot</h1>
+  <p class="lede">Requirements and evaluation rubric for adding a deep-research capability to the Kanton Basel-Stadt Open WebUI deployment. Every requirement has a priority and a way to measure it, so candidate solutions can be scored the same way.</p>
+  <div class="meta"><span>Platform <b>Open WebUI fork v0.11.4</b></span><span>Models <b>Gemma-4-31B · Qwen3.5-4B</b></span><span>Search <b>Serper + Firecrawl</b></span><span>Ops <b>ArgoCD / Helm / SOPS</b></span></div>
+</header>
+
+<section id="decisions">
+  <h2>Interview decisions</h2>
+  <div class="grid">
+    <div class="cell"><span class="k">Models</span><span class="v">On-prem only</span><span class="n">No cloud LLMs, including for planning and synthesis.</span></div>
+    <div class="cell"><span class="k">Placement</span><span class="v">Inside OWUI or separate service</span><span class="n">Whichever option scores best.</span></div>
+    <div class="cell"><span class="k">Entry points</span><span class="v">Chat model · async job · API</span><span class="n">Model in the picker, report posted back into the chat, and callable from n8n and other apps.</span></div>
+    <div class="cell"><span class="k">Sources</span><span class="v">Web · KB · uploads · MCP</span><span class="n">All MUST. Kantonsrecht and statistics portal via MCP, no SharePoint in v1.</span></div>
+    <div class="cell"><span class="k">Human in the loop</span><span class="v">Clarify first, approve plan</span><span class="n">No mid-run steering required.</span></div>
+    <div class="cell"><span class="k">Off-peak runs</span><span class="v">MUST (updated)</span><span class="n">Deep runs run in a night window; there is not enough GPU capacity during office hours.</span></div>
+    <div class="cell"><span class="k">Output</span><span class="v">Cited Markdown · DOCX/PDF · evidence trail</span><span class="n">Each claim traceable to the snippet behind it.</span></div>
+    <div class="cell"><span class="k">Depth</span><span class="v">Configurable per run</span><span class="n">Standard depth: 200k to 1M tokens.</span></div>
+    <div class="cell"><span class="k">Languages</span><span class="v">Report in German</span><span class="n">Search sources in DE, EN, FR and IT.</span></div>
+    <div class="cell"><span class="k">Governance</span><span class="v">Per-user quotas</span><span class="n">Entra group access downgraded to COULD. Audit log and domain lists not required for v1.</span></div>
+    <div class="cell"><span class="k">Configuration</span><span class="v">GitOps · per run · presets</span><span class="n">Platform team in Git, users choose depth, domain presets as files.</span></div>
+    <div class="cell"><span class="k">Sourcing</span><span class="v">Permissive OSS or own build</span><span class="n">Small Open WebUI fork patches are acceptable.</span></div>
+  </div>
+</section>
+
+<section id="method">
+  <h2>Scoring method</h2>
+  <p>MUST requirements are gates. An option that fails one and cannot close it cheaply drops out. SHOULD and COULD requirements score 0 to 3, and the category scores are combined with these weights, set from the interview priorities.</p>
+  <div class="weights">
+    <div class="wrow"><span>Result quality (Q)</span><span class="bar"><i style="width:100%"></i></span><span class="pct">30%</span></div>
+    <div class="wrow"><span>Integration &amp; ops (A)</span><span class="bar"><i style="width:83%"></i></span><span class="pct">25%</span></div>
+    <div class="wrow"><span>Configurability &amp; HITL (F, O)</span><span class="bar"><i style="width:67%"></i></span><span class="pct">20%</span></div>
+    <div class="wrow"><span>Efficiency (E)</span><span class="bar"><i style="width:33%"></i></span><span class="pct">10%</span></div>
+    <div class="wrow"><span>Governance (G)</span><span class="bar"><i style="width:33%"></i></span><span class="pct">10%</span></div>
+    <div class="wrow"><span>Maintenance (M)</span><span class="bar"><i style="width:17%"></i></span><span class="pct">5%</span></div>
+  </div>
+  <div class="scale"><span><b>0</b> absent</span><span><b>1</b> possible with custom code</span><span><b>2</b> config or small glue</span><span><b>3</b> native and solid</span></div>
+  <div class="counts"><span class="pri must">24 MUST</span><span class="pri should">13 SHOULD</span><span class="pri could">1 COULD</span></div>
+</section>
+
+<section id="sec-a"><h2><span class="letter">A</span>Architecture &amp; integration</h2><p class="secnote">weight: Integration &amp; ops</p><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">A1</td><td><span class="pri must">MUST</span></td><td>Production runs solely on on-prem LLMs via OpenAI-compatible endpoints (no cloud LLM, incl. embeddings/rerank). Research-specialised open models are out of scope for v1 but may be reconsidered later.</td><td class="metric">Configurable base_url+model per role; egress capture during a run shows 0 calls to LLM SaaS.</td></tr><tr><td class="id">A2</td><td><span class="pri must">MUST</span></td><td>Works reliably with open-weight ~30B models (Gemma-4-31B class): tool calling / structured output robust.</td><td class="metric">Run completion rate ≥ 90 % on 20 eval tasks with Gemma-4-31B; # of JSON/tool-call parse failures per run. Evidence of open-model support in docs/issues.</td></tr><tr><td class="id">A3</td><td><span class="pri must">MUST</span></td><td>Uses our search + fetch stack (Serper and/or SearXNG, Firecrawl) or pluggable equivalents; no new mandatory SaaS.</td><td class="metric">Backend pluggability: native / adapter needed / impossible. Count of new external services required.</td></tr><tr><td class="id">A4</td><td><span class="pri must">MUST</span></td><td>Sources: public web, OWUI knowledge bases, files uploaded in chat.</td><td class="metric">Per source type: native / via adapter / no.</td></tr><tr><td class="id">A5</td><td><span class="pri must">MUST</span></td><td>Sources through MCP servers: opencaselaw (<code>mcp.opencaselaw.ch</code>: federal and cantonal law, court decisions, Botschaften) and data.bs.ch (<code>mcp.data.bs.ch</code>: open data portal incl. Grosser Rat documents and proceedings, Statistisches Amt datasets). No SharePoint in v1. Users can also add a knowledge base or links manually.</td><td class="metric">Streamable-HTTP MCP client; per-server tool allowlist (opencaselaw exposes 45 tools); both servers reachable from the cluster through the proxy.</td></tr><tr><td class="id">A6</td><td><span class="pri must">MUST</span></td><td>Entry point 1: selectable &quot;Deep Research&quot; model in the OWUI chat (pipe or OpenAI-compatible model endpoint), streaming status.</td><td class="metric">Works in model picker; status updates visible; person-days to integrate.</td></tr><tr><td class="id">A7</td><td><span class="pri must">MUST</span></td><td>Entry point 2: async job. The user can leave, and the report arrives as a message in the OWUI chat.</td><td class="metric">Job survives browser close and pod restart; report posted to the originating chat.</td></tr><tr><td class="id">A8</td><td><span class="pri should">SHOULD</span></td><td>Entry point 3: API for n8n / other KI apps.</td><td class="metric">REST/OpenAI/MCP API exists, documented, authenticated.</td></tr><tr><td class="id">A9</td><td><span class="pri must">MUST</span></td><td>OWUI change footprint limited to extension points (functions, tools, MCP/OpenAPI tool servers) or small fork patches.</td><td class="metric">LOC of fork patch; expected merge conflicts per OWUI upgrade (0/low/high).</td></tr><tr><td class="id">A10</td><td><span class="pri must">MUST</span></td><td>K8s fit: OCI image, non-root, restricted PSS, no RWX, no emptyDir &gt; 250Mi, works behind HTTP proxy, state in Postgres/Redis/S3 (or stateless).</td><td class="metric">Checklist pass count (6 items).</td></tr><tr><td class="id">A11</td><td><span class="pri should">SHOULD</span></td><td>Robustness &amp; scale: run state persisted (survives pod restart), N parallel runs, horizontal scaling.</td><td class="metric">Kill pod mid-run → resume/clean fail; max concurrent runs tested.</td></tr><tr><td class="id">A12</td><td><span class="pri should">SHOULD</span></td><td>Observability: JSON logs, OTel traces/metrics, token usage per run.</td><td class="metric">Present y/n per item.</td></tr></tbody></table></div></section>
+<section id="sec-f"><h2><span class="letter">F</span>Research flow, HITL &amp; configuration</h2><p class="secnote">weight: Configurability &amp; HITL</p><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">F1</td><td><span class="pri must">MUST</span></td><td>Clarifying questions before research starts.</td><td class="metric">Native y/n; can be skipped by user.</td></tr><tr><td class="id">F2</td><td><span class="pri must">MUST</span></td><td>User reviews and can edit/approve the research plan before execution.</td><td class="metric">Native y/n; edit granularity (approve only / edit sub-questions).</td></tr><tr><td class="id">F3</td><td><span class="pri must">MUST</span></td><td>Configurable depth per run (breadth, depth, max sources, time/token budget).</td><td class="metric"># of exposed knobs; settable per run by end user.</td></tr><tr><td class="id">F4</td><td><span class="pri should">SHOULD</span></td><td>Domain presets (e.g. Rechtsrecherche, Statistik, Medienspiegel) with own prompts, source lists, models — defined as files via GitOps.</td><td class="metric">Preset = config file, no code change; # of tunable prompt slots.</td></tr><tr><td class="id">F5</td><td><span class="pri must">MUST</span></td><td>Platform team configures everything via GitOps (env/YAML/seeder), no mandatory click-ops.</td><td class="metric">% of settings settable declaratively.</td></tr><tr><td class="id">F6</td><td><span class="pri must">MUST</span></td><td>Output German (Swiss conventions, no ß); searches in DE/EN/FR/IT.</td><td class="metric">Output language controllable; multilingual query generation y/n.</td></tr><tr><td class="id">F7</td><td><span class="pri must">MUST</span></td><td>Off-peak execution: there is not enough GPU capacity during office hours, so deep runs are queued and run in a configurable window (20:00–05:00 CET). Optional quick runs may run immediately.</td><td class="metric">Execution window configurable via GitOps; queue survives restarts; GPU load during office hours unchanged (measured via vLLM metrics).</td></tr><tr><td class="id">F8</td><td><span class="pri should">SHOULD</span></td><td>Progress transparency during run (current step, sources found).</td><td class="metric">Live status events y/n.</td></tr></tbody></table></div></section>
+<section id="sec-o"><h2><span class="letter">O</span>Output</h2><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">O1</td><td><span class="pri must">MUST</span></td><td>Structured Markdown report with inline citations.</td><td class="metric">Citation coverage: % of factual sentences with a citation (target ≥ 90 %).</td></tr><tr><td class="id">O2</td><td><span class="pri should">SHOULD</span></td><td>Download as DOCX/PDF.</td><td class="metric">Native / via OWUI export / custom.</td></tr><tr><td class="id">O3</td><td><span class="pri must">MUST</span></td><td>Evidence trail: source list, queries issued, pages visited, claim → snippet mapping.</td><td class="metric">Items present (of 4).</td></tr></tbody></table></div></section>
+<section id="sec-q"><h2><span class="letter">Q</span>Result quality (weight: Result quality) — evaluated via public benchmarks</h2><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">Q1</td><td><span class="pri must">MUST</span></td><td>Demonstrated report quality on a public deep-research benchmark.</td><td class="metric">DeepResearch Bench RACE score (report quality); DeepResearchGym; published leaderboards. Note model used.</td></tr><tr><td class="id">Q2</td><td><span class="pri must">MUST</span></td><td>Citation faithfulness.</td><td class="metric">DeepResearch Bench FACT: citation accuracy &amp; effective citations per task.</td></tr><tr><td class="id">Q3</td><td><span class="pri should">SHOULD</span></td><td>Agentic search capability.</td><td class="metric">BrowseComp / BrowseComp-Plus / GAIA / xbench-DeepSearch scores where published.</td></tr><tr><td class="id">Q4</td><td><span class="pri should">SHOULD</span></td><td>Quality holds with open-weight models (not only GPT/Claude/Gemini).</td><td class="metric">Published results with open models; else our reproduction on 30-task DRB subset with Gemma-4-31B.</td></tr><tr><td class="id">Q5</td><td><span class="pri must">MUST</span></td><td>Quality on German administrative research: law, Grossrat decisions, web content, strategies.</td><td class="metric">German test set (13 tasks) scored with a rubric by the LLM judge plus domain-expert spot checks.</td></tr></tbody></table></div></section>
+<section id="sec-e"><h2><span class="letter">E</span>Efficiency</h2><p class="secnote">weight: Efficiency</p><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">E1</td><td><span class="pri must">MUST</span></td><td>Standard-depth run consumes 200k–1M tokens.</td><td class="metric">Measured input+output tokens per run (median, p90).</td></tr><tr><td class="id">E2</td><td><span class="pri should">SHOULD</span></td><td>Hard caps per run (tokens, time, # of LLM calls).</td><td class="metric">Native y/n.</td></tr><tr><td class="id">E3</td><td><span class="pri must">MUST</span></td><td>Per-role models with a per-role thinking switch: Gemma-4-31B with thinking for planning, research and writing; Gemma without thinking or Qwen3.5-4B for decisions, routing and summaries.</td><td class="metric"># of separately configurable model roles; thinking toggle per role (chat_template_kwargs).</td></tr><tr><td class="id">E4</td><td><span class="pri should">SHOULD</span></td><td>Wall-clock runtime fits depth level (quick 2–5 min … deep ≤ hours).</td><td class="metric">Median runtime per depth level.</td></tr></tbody></table></div></section>
+<section id="sec-g"><h2><span class="letter">G</span>Governance</h2><p class="secnote">weight: Governance</p><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">G1</td><td><span class="pri could">COULD</span></td><td>Access restricted to Entra groups (low priority).</td><td class="metric">Via OWUI model access control or own authZ; y/n.</td></tr><tr><td class="id">G2</td><td><span class="pri must">MUST</span></td><td>Per-user quotas/budgets (runs/day or tokens/day).</td><td class="metric">Enforced limit y/n; where enforced.</td></tr><tr><td class="id">G3</td><td><span class="pri should">SHOULD</span></td><td>Respect usage policy: warn/guard against personal data in queries sent to external search.</td><td class="metric">Hook for PII check / disclaimer y/n.</td></tr></tbody></table></div></section>
+<section id="sec-m"><h2><span class="letter">M</span>Sourcing &amp; maintenance</h2><p class="secnote">weight: Maintenance</p><div class="tablewrap"><table><thead><tr><th>ID</th><th>Priority</th><th>Requirement</th><th>Metric / how to measure</th></tr></thead><tbody><tr><td class="id">M1</td><td><span class="pri must">MUST</span></td><td>Permissive OSS licence (MIT/Apache-2.0/BSD) or own build. AGPL/proprietary = only as reference.</td><td class="metric">Licence.</td></tr><tr><td class="id">M2</td><td><span class="pri should">SHOULD</span></td><td>Actively maintained.</td><td class="metric">Commits last 90 d; last release date; # contributors (12 mo); open/closed issue ratio; GitHub stars as weak signal.</td></tr><tr><td class="id">M3</td><td><span class="pri should">SHOULD</span></td><td>Forkable / small enough to own if upstream dies.</td><td class="metric">Core LOC; # of heavy dependencies.</td></tr></tbody></table></div></section>
+
+<section id="decisions2">
+  <h2>Decisions, round 2</h2>
+  <h3>Decisions, round 4 (9 Oct 2026)</h3>
+<div class="grid">
+<div class="cell"><span class="k">Scheduling</span><span class="v">All deep research outside office hours</span><span class="n">Recommendation: only quick runs of the focus engine during the day, with concurrency 1 and a quota.</span></div>
+<div class="cell"><span class="k">MCP servers (own)</span><span class="v">data.bs.ch, statistik.bs.ch, Grossrat</span><span class="n"><code>mcp.data.bs.ch/mcp</code> (OGD), <code>mcp.statistik.bs.ch/mcp</code> (statistics portal), <code>mcp-grosserrat.statistik.bs.ch/mcp</code> (Grossrat full texts, most useful). We build them, so we can optimise them.</span></div>
+<div class="cell"><span class="k">opencaselaw</span><span class="v">Accepted for production</span><span class="n">Possibly self-hosted later.</span></div>
+<div class="cell"><span class="k">Network</span><span class="v">Cluster reaches all MCP servers</span><span class="n">No proxy work needed.</span></div>
+<div class="cell"><span class="k">Production model</span><span class="v">RedHatAI/gemma-4-31B-it-NVFP4</span><span class="n">Identical to the evaluation, so no production spot check is needed.</span></div>
+<div class="cell"><span class="k">MCP citations</span><span class="v">Cite the source, not the server</span><span class="n">Every citation points to the document URL the MCP result returned; never "MCP" or the endpoint.</span></div>
+</div>
+<div class="grid">
+<div class="cell"><span class="k">Benchmark judge</span><span class="v">Official DRB judges via OpenRouter</span><span class="n">GPT-5.5 for RACE, GPT-5.4-mini for FACT. Only public benchmark data and our generated reports. Production stays on-prem.</span></div>
+<div class="cell"><span class="k">Model roles</span><span class="v">Gemma-4-31B with thinking for the heavy steps</span><span class="n">Decisions and small tasks go to Gemma without thinking, or Qwen3.5-4B.</span></div>
+<div class="cell"><span class="k">German test set</span><span class="v">Yes, 13 tasks drafted</span><span class="n">Law, Grossrat decisions, web content, strategies, statistics. Needs expert review.</span></div>
+<div class="cell"><span class="k">Off-peak runs</span><span class="v">MUST, 20:00–05:00 CET</span><span class="n">Not enough GPU capacity during office hours.</span></div>
+<div class="cell"><span class="k">Notification</span><span class="v">Message in the OWUI chat</span><span class="n">No e-mail or Teams for now.</span></div>
+<div class="cell"><span class="k">Research-specialised models</span><span class="v">Not now</span><span class="n">An option to reconsider if Gemma's citation accuracy falls short.</span></div>
+<div class="cell"><span class="k">Internal sources</span><span class="v">MCP: opencaselaw, data.bs.ch</span><span class="n">No SharePoint. Users can add a knowledge base or links manually.</span></div>
+<div class="cell"><span class="k">Entra group access</span><span class="v">Downgraded to COULD</span><span class="n">The seeder change for group grants is no longer needed.</span></div>
+<div class="cell"><span class="k">Runs outside OWUI pods</span><span class="v">Allowed</span><span class="n">A thin pipe in OWUI with the job service in its own deployment.</span></div>
+</div>
+<h3>Are pipes still supported?</h3>
+<p>Yes. Pipe functions are a first-class extension point in v0.11.4 and in current main (<code>functions.py</code> registers every active pipe as a model; 0.11 added enable/disable events and multi-select valves for functions). The only switch is <code>ENABLE_PLUGINS</code>, which is on by default and not set in our values. The separate "Pipelines" server is a different product, disabled in our chart, and not needed: the pipe calls our job service directly.</p>
+<h3>NVIDIA Deep Researcher chart check</h3>
+<p>Rendered with <code>helm template</code> (chart 2.2.0, web profile): 3 Deployments (backend, frontend, postgres), 1 PVC, an nginx Ingress, no emptyDir. What our cluster needs:</p>
+<ul class="open">
+<li><b>Restricted PSS:</b> the containers drop all capabilities and block privilege escalation, but the pod <code>securityContext</code> is null, so runAsNonRoot and the seccomp profile are missing. The chart accepts <code>podSecurityContext</code> per app, so a values override fixes it. Images already run as UID 1000.</li>
+<li><b>Postgres:</b> the bundled <code>bitnami/postgresql:latest</code> and its init container (no securityContext) should be replaced by our managed Postgres, as for OWUI. The init SQL runs once.</li>
+<li><b>Emptydir cap:</b> no emptyDir volumes. Chroma and relay logs write into the container filesystem, which is fine at the 4Gi limit, or we turn them off.</li>
+<li><b>Network:</b> swap the nginx Ingress for an HTTPRoute, or skip it entirely since OWUI is the frontend. Add HTTP(S)_PROXY and NO_PROXY via <code>env</code>.</li>
+<li><b>NGC:</b> images are on nvcr.io, so we need an NGC API key as pull secret, which you have. <code>NVIDIA_API_KEY</code> is only for NVIDIA-hosted models and is not needed with our vLLM. The code is Apache-2.0, and an AI Enterprise licence is probably not required.</li>
+<li><b>OpenShell is optional.</b> Only the experimental <code>config_openshell</code> and the data-science profiles use a sandbox (OpenShell or Modal, one per job). The default web config runs without one, and charts fall back to Markdown tables or inline chart specs. If Agent Sandboxes become available, sandboxed analysis skills can be added later.</li>
+<li><b>Jobs:</b> by default jobs run on Dask inside the backend pod, so a restart kills running jobs. An example config adds a shared Dask scheduler and worker pool (TLS), which keeps jobs alive across API restarts and lets the worker count scale up at night.</li>
+</ul><h3>MCP sources checked</h3>
+<p>Both endpoints answered an MCP <code>initialize</code> and <code>tools/list</code> from outside the cluster on 7 Oct 2026. Reachability from the cluster through the proxy is still open.</p>
+<div class="tablewrap"><table><thead><tr><th>Server</th><th>Endpoint</th><th>What it covers</th><th>Notes for the integration</th></tr></thead><tbody>
+<tr><td class="id">data.bs.ch</td><td class="metric"><code>https://mcp.data.bs.ch/</code><br>streamable HTTP, no auth, server v1.26.0</td><td>5 tools (<code>get_datasets</code> with semantic search, <code>get_dataset</code>, <code>get_records</code> with ODSQL, <code>get_facets</code>, <code>export_dataset_url</code>) over 364 open datasets, including "Grosser Rat: Dokumente" and "Vorgänge von Geschäften" (Parlamentsdienst) and the Statistisches Amt series (e.g. vacant flats).</td><td class="metric">Small tool set, well suited to Gemma. Grossrat documents are metadata plus links, so full texts go through Firecrawl or Docling. Only one server found at this host; any other data.bs.ch MCP endpoints still need their URLs.</td></tr>
+<tr><td class="id">opencaselaw</td><td class="metric"><code>https://mcp.opencaselaw.ch/</code><br>streamable HTTP, no auth</td><td>45 tools: about 1.05M federal and cantonal decisions, federal and cantonal legislation (Fedlex, LexFind), Botschaften, Materialien, OA commentaries and scholarship, citation graph. Includes the deep-research <code>search</code>/<code>fetch</code> pair. Corpus CC0, code MIT.</td><td class="metric">45 tools is too many for a 31B model, so allowlist about 8 (<code>search</code>, <code>fetch</code>, <code>search_laws</code>, <code>get_law</code>, <code>search_legislation</code>, <code>get_legislation</code>, <code>search_decisions</code>, <code>get_erwaegung</code>). It is an external service run by one person, so queries leave our network as with Serper: public questions only. <code>check_claim_support</code> and <code>attest_response</code> run an LLM judge on the operator's side, so exclude them. Self-hosting from the CC0 dataset is a fallback.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="compare">
+  <h2>Comparison and shortlist</h2>
+  <p>MUST gates: <b>P</b> passes, <b>G</b> passes with glue code we write, <b>F</b> fails structurally. Effort is the agents' estimate in person-days to reach every MUST in our cluster. No candidate has published report scores with an open-weight model, so quality is unproven for all of them until the benchmark run.</p>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Gates</th><th>Strengths</th><th>Weaknesses</th><th>Effort</th><th>Status</th></tr></thead><tbody>
+<tr><td><b>GPT-Researcher</b> + open-webui-gpt-researcher bridge (fork)</td><td class="metric">A1 P · A2 P (JSON repair) · A3 P · A5 P (MCP) · A7 P (bridge) · F1 G · F2 G · F7 G · E3 G (one LLM_KWARGS for all roles → gateway aliases) · G2 G · M1 P</td><td>Apache-2.0 and very active. Native Serper, SearXNG and Firecrawl. Fast, smart and strategic model roles. DOCX/PDF export. The bridge already does Pipe → Postgres gateway → one K8s Job per run, with S3 storage and Helm.</td><td>The bridge is a one-person project, pre-production. No clarifying questions. Plan review is free-text feedback only. Published RACE 0.512 is on gpt-5.4 over 10 tasks.</td><td class="id">12–16</td><td><span class="st run">SHORTLIST</span></td></tr>
+<tr><td><b>NVIDIA Deep Researcher Agent</b> (ex AI-Q)</td><td class="metric">A1 P · A2 ? · A3 G (Serper plugin) · A5 P (MCP client) · A7 P · F1 P · F2 G · F7 G · E3 P (thinking per role) · G2 P (per-principal admission limits) · A10 G (values overrides) · M1 P</td><td>Helm chart, Postgres async jobs with checkpoints, optional shared Dask worker pool, MCP client and server, a model and thinking switch per role in YAML (NVIDIA's own default uses Gemma-4-31B for summaries), clarifying questions, citation verification, per-user and global job limits, OTel. Images run non-root (UID 1000, distroless).</td><td>Plan approval was removed in 2.2. Web search only through Tavily, Exa, You.com, Nimble or DuckDuckGo, so we need a Serper plugin (about 200 LOC). The chart needs overrides: no pod securityContext, an unhardened bitnami/postgresql:latest init container, nginx Ingress, no proxy env. Images come from nvcr.io (needs an NGC pull secret). OpenShell is only needed for optional sandbox skills.</td><td class="id">17–25</td><td><span class="st run">SHORTLIST</span></td></tr>
+<tr><td><b>Own build</b>: OWUI pipe and job service, reusing the open_deep_research, Onyx and ZH loops and prompts</td><td class="metric">All MUSTs by design · Q unproven</td><td>Full control over HITL, presets, German, quotas, evidence trail and citations that keep their source quote. No upstream risk.</td><td>Most effort, and we own maintenance (1–2 PD per OWUI upgrade). Quality depends on our own engineering.</td><td class="id">10–15 (thin) to 30–45 (full)</td><td><span class="st run">SHORTLIST</span></td></tr>
+<tr><td><b>OWUI seeded "Deep Research" model</b> (sub-agents, ask_user, web search)</td><td class="metric">F2 weak · F3 weak · E2 F · O3 F</td><td>No code, ships via the seeder this week. Useful as the benchmark baseline.</td><td>Plan approval is not enforced and there are no budgets or evidence trail. Runs stop on a pod restart.</td><td class="id">1–2</td><td><span class="st todo">BASELINE</span></td></tr>
+<tr><td>Local Deep Research</td><td class="metric">A10 F (root, SQLite on disk) · A11 F (single replica) · F1/F2 G</td><td>Best local-model results, native SearXNG and Serper, scheduler and notifications.</td><td>Per-user SQLite files on disk, about 237k LOC.</td><td class="id">12–17</td><td><span class="st todo">REJECTED</span></td></tr>
+<tr><td>DeerFlow 2</td><td class="metric">A2 risky · A6 G · M3 F</td><td>Helm chart that passes restricted PSS, cron, PII redaction, token budgets, OIDC, MCP.</td><td>General agent harness where deep research is only a skill. About 217k LOC with heavy churn. No benchmarks.</td><td class="id">20+</td><td><span class="st todo">REJECTED</span></td></tr>
+<tr><td>Onyx</td><td class="metric">A9 F (second chat platform)</td><td>Best open RACE (54.54, LLM unknown). MIT loop of about 1.1k LOC.</td><td>Means running a whole second chat product.</td><td class="id">n/a</td><td><span class="st todo">TEMPLATE</span></td></tr>
+<tr><td>LangChain open_deep_research</td><td class="metric">M2 F (archived 2026-08) · A3 F (Tavily only)</td><td>Best documented quality and tokens: RACE 43.4 on GPT-4.1, about 580k tokens.</td><td>Archived, relies heavily on tool calls, no plan approval.</td><td class="id">n/a</td><td><span class="st todo">TEMPLATE</span></td></tr>
+<tr><td>machinelearningZH/deep-research</td><td class="metric">A3 F · F1 F · F2 F · A8 F</td><td>German admin and legal prompts, relevance check before reading full documents, DOCX export.</td><td>No web search, Streamlit prototype, one maintainer.</td><td class="id">6–10 (KB-only pipe)</td><td><span class="st todo">TEMPLATE</span></td></tr>
+<tr><td>STORM, smolagents ODR, dzhng, Firecrawl ODR, Jina, Vane, II-Researcher, Skywork, WebThinker, n8n templates</td><td class="metric">M2 or A3 F</td><td>n/a</td><td>Demo, stalled, SaaS-bound, or not deep research.</td><td class="id">n/a</td><td><span class="st todo">REJECTED</span></td></tr>
+</tbody></table></div>
+<h3>Recommendation</h3>
+<p>Shortlist GPT-Researcher (through a fork of the OWUI bridge), the NVIDIA Deep Researcher Agent, and an own build as the fallback. Benchmark both external engines with Gemma-4-31B against two baselines: the seeded OWUI model and Gemma without search. Citation accuracy is the expected weak point for ~30B models, so weight FACT heavily. If both engines miss the citation gate, build our own around citations that keep their source quote, or pilot MiroThinker-1.7-mini as the search sub-agent. Don't host a research-specialised model before then.</p>
+<h3>Architecture shared by every shortlisted option</h3>
+<p>Thin OWUI pipe ("Deep Research" model, access limited to Entra groups) → research job service with run state in Postgres and one K8s Job per run, so runs survive pod restarts and the 30-minute HTTP timeout. The pipe submits a job and polls it, streaming status and citations. Clarifying questions and plan approval run as chat turns before submission. A quota filter backed by Redis enforces per-user budgets. n8n sends notifications and offers the API entry point. Deep runs go into a queue that only drains in the night window (20:00–05:00 CET, set via GitOps), so office-hour GPU load stays unchanged. The finished report is posted back into the originating chat. A model gateway (LiteLLM) in front of vLLM counts tokens per run and exposes role aliases, e.g. <code>gemma-think</code> and <code>gemma-fast</code> with different <code>chat_template_kwargs</code>, so any framework gets per-role thinking without code changes.</p>
+</section>
+
+<section id="evaluation">
+  <h2>Local evaluation</h2>
+  <h3>Final results (9 Oct 2026)</h3>
+<p><b>DeepResearch Bench, 20 English tasks</b> (official judges; baselines on the 10 stage-1 tasks):</p>
+<div class="tablewrap"><table><thead><tr><th>Approach</th><th>RACE</th><th>Citation accuracy</th><th>Supported citations</th><th>Tokens median / p90</th><th>Runtime median</th></tr></thead><tbody>
+<tr><td>baseline-nosearch</td><td class="id">43.9</td><td class="metric">n/a</td><td class="metric">n/a</td><td class="id">2k / 3k</td><td class="id">0.6 min</td></tr>
+<tr><td>baseline-agent</td><td class="id">43.3</td><td class="id">45.4% ✗</td><td class="id">9.8</td><td class="id">13k / 23k</td><td class="id">1.4 min</td></tr>
+<tr><td>GPT-Researcher @patched</td><td class="id">46.3</td><td class="id">75.7% ✓</td><td class="id">32.0</td><td class="id">282k / 361k</td><td class="id">13.6 min</td></tr>
+<tr><td>NVIDIA Deep Researcher (default)</td><td class="id">46.5</td><td class="id">54.8% ✗</td><td class="id">20.0</td><td class="id">862k / 1.06M</td><td class="id">14.5 min</td></tr>
+<tr><td>NVIDIA Deep Researcher @lean</td><td class="id">45.2</td><td class="id">62.6% ✓</td><td class="id">24.3</td><td class="id">775k / 939k</td><td class="id">13.8 min</td></tr>
+<tr><td><b>research-agent (own, v2)</b></td><td class="id">46.0</td><td class="id"><b>82.7%</b> ✓</td><td class="id"><b>60.9</b></td><td class="id"><b>133k / 173k</b></td><td class="id"><b>4.5 min</b></td></tr>
+</tbody></table></div>
+<p><b>German admin set, 13 tasks</b> (shared report contract, data.bs.ch MCP working, re-judged with today's date):</p>
+<div class="tablewrap"><table><thead><tr><th>Approach</th><th>Rubric</th><th>Tokens median</th><th>Report length median</th></tr></thead><tbody>
+<tr><td><b>baseline-agent</b> (bounded tool-calling loop)</td><td class="id"><b>55.0%</b></td><td class="id"><b>13–28k</b></td><td class="id">8k chars</td></tr>
+<tr><td>NVIDIA @lean</td><td class="id">54.6%</td><td class="id">775k</td><td class="id">8k chars</td></tr>
+<tr><td>GPT-Researcher @patched</td><td class="id">49.4%</td><td class="id">429k</td><td class="id">22k chars</td></tr>
+<tr><td>research-agent v2</td><td class="id">48.1%</td><td class="id">251k</td><td class="id">31k chars</td></tr>
+<tr><td>research-agent v3 (fixes from German analysis)</td><td class="id">46.8%</td><td class="id">119k</td><td class="id">12k chars</td></tr>
+<tr><td>baseline-nosearch</td><td class="id">32.0%</td><td class="id">2k</td><td class="id">7k chars</td></tr>
+</tbody></table></div>
+<ul class="open">
+<li><b>No approach clears the RACE gate</b> of +3 over Gemma without search; on English surveys the three engines are within noise (46.0–46.5). The model, not the framework, limits report quality.</li>
+<li><b>For broad web surveys, the own research-agent gives the best value</b>: the same RACE as GPT-Researcher and NVIDIA, the best citations (83%, twice as many supported citations) at half to a seventh of the tokens and in 4.5 minutes.</li>
+<li><b>For German administrative questions, the simple bounded agent loop is as good as NVIDIA</b> (55.0% vs 54.6%) at about 3% of its tokens. research-agent loses mainly on the criterion "every claim has a fitting source" (0.3 vs 1.0 of 3): its section-wise pipeline writes more text than its evidence supports.</li>
+<li><b>v3 did not help</b>: German within noise (46.8% vs 48.1%), DRB −3.2 RACE on 3 tasks, because dropping sentences that fail the number check removed too much (task 51: 31 sentences).</li>
+<li><b>Recommendation</b>: one service and one Open WebUI pipe with two engines selected by preset: a <b>focus engine</b> (bounded tool-calling loop with MCP allowlists, plus research-agent's citation check and source list) for administrative questions, and the <b>research-agent v2 pipeline</b> for broad surveys. Neither GPT-Researcher nor NVIDIA justifies its token cost on our hardware.</li>
+</ul>
+<p>The benchmark runs on a dev machine with 2× RTX 4090 in the repo <code>deep-research-evaluation</code>, with the same stack as production: on-prem Gemma-4-31B, Serper, self-hosted Firecrawl (production image versions) and the two MCP servers. All candidates share one model, one search stack and one judge pipeline. <b>Status: final run done (9 Oct 2026).</b> Results below. Full report: <code>docs/bebbi-bot-deep-research.md</code> in the deep-research-evaluation repo.</p>
+<div class="grid">
+<div class="cell"><span class="k">Model</span><span class="v">Gemma-4-31B NVFP4, TP=2</span><span class="n">vLLM 0.30, 128k context, 132k-token KV cache, gemma4 reasoning and tool parsers. The 4090 has no native FP4, so the weight-only Marlin kernel is slower than production.</span></div>
+<div class="cell"><span class="k">Gateway</span><span class="v">Role aliases + metering</span><span class="n"><code>gemma-think</code> (thinking on) and <code>gemma-fast</code> (thinking off, stands in for Qwen3.5-4B). Tokens and searches logged per run; Serper and Tavily proxies with a benchmark-leakage blocklist.</span></div>
+<div class="cell"><span class="k">Tasks</span><span class="v">20 DRB (EN) + 13 German</span><span class="n">Two stages: 10 DRB tasks for all four candidates, the other 10 only for the best two. German set with opencaselaw and data.bs.ch MCP.</span></div>
+<div class="cell"><span class="k">Judges</span><span class="v">Official DRB judges via OpenRouter</span><span class="n">RACE GPT-5.5, FACT GPT-5.4-mini, German rubric GPT-5.4-mini. About $0.35–0.40 per report with RACE and FACT.</span></div>
+</div>
+<h3>Calibration: DRB task 90 (liability for driver-assistance systems)</h3>
+<p>One task only, so these are indications, not results.</p>
+<div class="tablewrap"><table><thead><tr><th>Candidate</th><th>RACE</th><th>Citation accuracy</th><th>Effective citations</th><th>Tokens</th><th>Runtime</th><th>Searches</th></tr></thead><tbody>
+<tr><td>baseline-nosearch (Gemma only)</td><td class="id">44.9</td><td class="metric">n/a</td><td class="metric">n/a</td><td class="id">2.4k</td><td class="id">0.6 min</td><td class="id">0</td></tr>
+<tr><td>baseline-agent (≈ today's web search)</td><td class="id">46.2</td><td class="id">38.1% ✗</td><td class="id">8</td><td class="id">15k</td><td class="id">1.5 min</td><td class="id">12</td></tr>
+<tr><td><b>GPT-Researcher</b></td><td class="id"><b>49.5</b> ✓</td><td class="id"><b>69.0%</b> ✓</td><td class="id">20 ✓</td><td class="id">163k</td><td class="id">14.2 min ✓</td><td class="id">36</td></tr>
+<tr><td>NVIDIA Deep Researcher</td><td class="id">48.3 ✓</td><td class="id">57.6% ✗</td><td class="id">19</td><td class="id">929k</td><td class="id">20.4 min ✗</td><td class="id">48</td></tr>
+</tbody></table></div>
+<ul class="open">
+<li><b>GPT-Researcher</b> passes every quality gate on this task, and its token use is below the planned 200k–1M range. Its report is 24k characters with 22 sources and APA-style references.</li>
+<li><b>NVIDIA</b> is close on quality but uses about 6× the tokens. 868k of its 929k are prompt tokens, because sub-agents re-read their growing context on every call. The log shows retries where Gemma's structured JSON output failed, which is the expected weak spot of a ~30B model.</li>
+<li><b>The simple agent loop</b> is cheap, but only 38% of its checkable citations are supported. It often cites pages from search snippets without reading them.</li>
+<li><b>All three search candidates beat Gemma without search</b> on RACE. The gate requires at least +3 points; only the two deep-research engines reach it.</li>
+</ul>
+<h3>Stage 1: 10 DRB tasks per approach</h3>
+<div class="tablewrap"><table><thead><tr><th>Approach</th><th>RACE</th><th>vs. no search</th><th>Citation accuracy</th><th>Effective citations</th><th>Tokens median / p90</th><th>Runtime median</th></tr></thead><tbody>
+<tr><td>baseline-nosearch</td><td class="id">43.9</td><td class="metric">n/a</td><td class="metric">n/a</td><td class="metric">n/a</td><td class="id">2k / 5k</td><td class="id">0.6 min</td></tr>
+<tr><td>baseline-agent (≈ today's web search)</td><td class="id">43.3</td><td class="id">−0.6</td><td class="id">45.4% ✗</td><td class="id">9.8 ✗</td><td class="id">13k / 23k</td><td class="id">1.4 min</td></tr>
+<tr><td><b>GPT-Researcher</b></td><td class="id">45.2 ✓</td><td class="id">+1.3 ✗</td><td class="id"><b>79.2%</b> ✓</td><td class="id"><b>25.9</b> ✓</td><td class="id">218k / 232k ✓</td><td class="id">10.6 min ✓</td></tr>
+<tr><td>NVIDIA Deep Researcher</td><td class="id"><b>46.5</b> ✓</td><td class="id">+2.6 ✗</td><td class="id">54.8% ✗</td><td class="id">20.0 ✓</td><td class="id">877k / 1.83M ✗</td><td class="id">15.7 min ✓</td></tr>
+</tbody></table></div>
+<ul class="open">
+<li><b>No approach clears the RACE gate of +3 over Gemma without search.</b> NVIDIA is closest (+2.6), GPT-Researcher at +1.3. The absolute gate (RACE ≥ 43) is too easy: even Gemma without search passes it.</li>
+<li><b>RACE differences are small overall</b> (43–47). All reports are much shorter than DRB's Gemini Deep Research reference (median 7–22k vs 69k characters), and comprehensiveness is the weakest dimension for every approach. Report length and depth are tunable in both engines.</li>
+<li><b>GPT-Researcher has by far the best citations</b> (79%, 26 supported per report) at about a quarter of NVIDIA's tokens, with very stable usage (p90 232k).</li>
+<li><b>NVIDIA writes the better reports</b> (higher RACE on 7 of 10 tasks, best on comprehensiveness and instruction following), but cites unreliably (25–80% per task) and its tokens vary widely (up to 1.83M).</li>
+<li><b>The simple agent loop scores below Gemma without search</b>, so a multi-step research engine is clearly needed over today's web search.</li>
+</ul>
+<p>Judge spend so far: $11.90 of $50.</p>
+<h3>Protocol deviations</h3>
+<ul class="open">
+<li>20 of 50 English DRB tasks, chosen for closeness to administrative work, in two stages to keep judge costs low.</li>
+<li>FACT scrapes cited pages with our Firecrawl instead of the Jina Reader. Pages it can't fetch (paywalls, Reuters, some PDFs) count as "unknown", and DRB leaves those out of the accuracy calculation.</li>
+<li>A FACT focus step cuts each page to the 16k characters most relevant to the cited claims (local embeddings). A plain prefix cap marked long PDFs "unsupported": 31.6% vs 38.1% on the same report.</li>
+</ul>
+<h3>Fixes during setup</h3>
+<ul class="open">
+<li>At 82% GPU memory, vLLM ran out of memory on long prompts once the embedding server was up. Gemma now runs at 80%, embeddings at 10%.</li>
+<li>NVIDIA ships only Tavily as web search. The gateway now offers a Tavily-compatible endpoint backed by Serper and Firecrawl, so no plugin was needed.</li>
+</ul>
+<h3>Results viewer</h3>
+<p><code>uv run python -m eval.viewer</code> builds <code>results/viewer.html</code>: every task with its prompt, the reports of any two approaches side by side (including the DRB reference report), scores against the gates, every citation with the judge's verdict, and every search query.</p>
+</section>
+
+<section id="testset">
+  <h2>German test set</h2>
+  <p>Draft v0.2 for requirement Q5. Every report is scored on the shared criteria plus its task-specific ones, by an OpenRouter judge with expert spot checks. Law tasks use opencaselaw; Grossrat and statistics tasks use data.bs.ch. Domain experts still need to review the questions.</p>
+<h3>Shared criteria</h3><ul class="open"><li>Beantwortet die Frage vollständig und strukturiert (Zusammenfassung, Hauptteil, offene Punkte)</li><li>Jede Tatsachenbehauptung ist mit einer abrufbaren Quelle belegt; Zitat stützt die Aussage</li><li>Primärquellen (Erlasse, Ratsgeschäfte, amtliche Publikationen) haben Vorrang vor Sekundärquellen</li><li>Stand und Datum der Quellen werden genannt; veraltete oder widersprüchliche Angaben werden markiert</li><li>Schweizer Rechtschreibung (kein ß), sachlicher Verwaltungsstil, verständlich für Nicht-Fachpersonen</li><li>Grenzen und Unsicherheiten der Recherche werden offen ausgewiesen</li></ul>
+<div class="tablewrap"><table><thead><tr><th>ID</th><th>Category</th><th>Research question</th><th>Task-specific criteria</th></tr></thead><tbody><tr><td class="id">DE-R1</td><td>Recht<br><span class="secnote">standard · DE<br>mcp:opencaselaw, web</span></td><td>Welche rechtlichen Grundlagen regeln im Kanton Basel-Stadt die Videoüberwachung des öffentlichen Raums durch kantonale Behörden? Stelle die massgebenden Bestimmungen des kantonalen Rechts und des Bundesrechts zusammen und zeige auf, welche Voraussetzungen, Zuständigkeiten und Aufbewahrungsfristen gelten.</td><td class="metric">· Nennt die einschlägigen kantonalen Erlasse mit Paragraphen und SG-Nummer<br>· Grenzt kantonales Recht und Bundesrecht korrekt ab<br>· Nennt Bewilligungs- bzw. Meldeverfahren und zuständige Stellen<br>· Verweist auf Praxis oder Stellungnahmen der Datenschutzaufsicht, falls vorhanden</td></tr><tr><td class="id">DE-R2</td><td>Recht<br><span class="secnote">deep · DE, FR, EN<br>mcp:opencaselaw, web</span></td><td>Wie ist der Einsatz von KI-Systemen in der kantonalen Verwaltung rechtlich eingebettet? Vergleiche die Rechtslage in Basel-Stadt mit Zürich, Bern und Genf sowie mit den Vorgaben des Bundes, und ordne ein, wo die EU-KI-Verordnung für Schweizer Behörden relevant ist.</td><td class="metric">· Unterscheidet geltendes Recht, Entwürfe und Richtlinien<br>· Deckt mindestens vier Kantone inkl. einer französischsprachigen Quelle ab<br>· Nennt die relevanten Bestimmungen des Datenschutzrechts zu automatisierten Einzelentscheidungen<br>· Ordnet die extraterritoriale Wirkung der EU-KI-Verordnung nachvollziehbar ein</td></tr><tr><td class="id">DE-R3</td><td>Recht<br><span class="secnote">standard · DE<br>mcp:opencaselaw, web</span></td><td>Welche Bewilligungen braucht es in Basel-Stadt für eine Photovoltaikanlage auf einem Gebäude in einer Schutz- oder Schonzone, und welche Gesetze, Verordnungen und Merkblätter sind massgebend?</td><td class="metric">· Unterscheidet bewilligungsfreie, meldepflichtige und bewilligungspflichtige Fälle<br>· Nennt Bundesrecht (RPG/RPV) und kantonales Bau- und Denkmalschutzrecht<br>· Verweist auf aktuelle Merkblätter oder Praxishilfen der Verwaltung<br>· Beschreibt den Ablauf für Gesuchstellende</td></tr><tr><td class="id">DE-G1</td><td>Grossrat<br><span class="secnote">deep · DE<br>mcp:data-bs, web</span></td><td>Welche Vorstösse (Motionen, Anzüge, Interpellationen, Budgetpostulate) zu Hitzeminderung und Stadtklima hat der Grosse Rat Basel-Stadt seit 2020 behandelt? Wie hat der Regierungsrat jeweils geantwortet und was wurde beschlossen?</td><td class="metric">· Listet Geschäfte mit Geschäftsnummer, Datum und Status<br>· Fasst die Antworten des Regierungsrats korrekt zusammen<br>· Unterscheidet überwiesene, abgeschriebene und offene Aufträge<br>· Erkennt thematische Schwerpunkte und Trends</td></tr><tr><td class="id">DE-G2</td><td>Grossrat<br><span class="secnote">standard · DE<br>mcp:data-bs, web</span></td><td>Zeichne die politische Entwicklung der familienergänzenden Kinderbetreuung im Grossen Rat Basel-Stadt seit 2015 nach: zentrale Geschäfte, Ratschläge, Abstimmungsergebnisse, Volksabstimmungen und Kostenfolgen.</td><td class="metric">· Chronologie mit Geschäftsnummern und Daten<br>· Nennt Abstimmungsergebnisse aus Primärquellen<br>· Weist Kostenfolgen mit Quelle aus<br>· Verknüpft Ratsgeschäfte mit allfälligen Volksabstimmungen</td></tr><tr><td class="id">DE-G3</td><td>Grossrat<br><span class="secnote">quick · DE<br>mcp:data-bs, web</span></td><td>Welche Geschäfte zur Digitalisierung der Verwaltung hat der Grosse Rat in der laufenden Legislatur behandelt, und welche Aufträge an den Regierungsrat sind noch offen?</td><td class="metric">· Bestimmt die laufende Legislatur korrekt<br>· Liste mit Status je Geschäft<br>· Offene Aufträge mit Frist, sofern publiziert</td></tr><tr><td class="id">DE-W1</td><td>Web-Inhalte<br><span class="secnote">standard · DE, FR<br>web</span></td><td>Wie informieren die Kantone Basel-Stadt, Basel-Landschaft, Zürich und Genf online über die ordentliche Einbürgerung (Voraussetzungen, Ablauf, Gebühren, Sprachnachweis)? Vergleiche Inhalt, Verständlichkeit und Aktualität der Angebote.</td><td class="metric">· Vergleichstabelle über alle vier Kantone<br>· Gebühren und Voraussetzungen mit Quelle und Abrufdatum<br>· Nutzt die französischsprachige Quelle für Genf<br>· Begründete Beurteilung der Verständlichkeit</td></tr><tr><td class="id">DE-W2</td><td>Web-Inhalte<br><span class="secnote">deep · DE, FR, IT, EN<br>web</span></td><td>Welche Schweizer Städte, Gemeinden und Kantone setzen Chatbots oder KI-Assistenten für Anfragen der Bevölkerung oder der Mitarbeitenden ein? Beschreibe Einsatzbereich, Technologie bzw. Anbieter, Datenschutzhinweise und veröffentlichte Erfahrungen.</td><td class="metric">· Deckt alle Sprachregionen ab<br>· Trennt Pilotprojekte und produktive Angebote<br>· Belegt Anbieter- und Technologieangaben<br>· Fasst publizierte Erfahrungen oder Evaluationen zusammen</td></tr><tr><td class="id">DE-W3</td><td>Web-Inhalte<br><span class="secnote">quick · DE, IT<br>web</span></td><td>Welche Informationen zu Abfallentsorgung und Gebühren finden Einwohnerinnen und Einwohner auf bs.ch, und wie vollständig sind sie im Vergleich zu den Angeboten von Bern und Lugano?</td><td class="metric">· Strukturierter Vergleich der drei Städte<br>· Nutzt die italienischsprachige Quelle für Lugano<br>· Benennt konkrete Lücken mit Verweis auf die Seiten</td></tr><tr><td class="id">DE-S1</td><td>Strategien<br><span class="secnote">deep · DE<br>web, mcp:data-bs</span></td><td>Fasse die Klimaschutzstrategie des Kantons Basel-Stadt zusammen: Ziele, Massnahmenpakete, Zuständigkeiten, bisheriger Umsetzungsstand und publizierte Kritik. Vergleiche sie mit den Strategien von Stadt und Kanton Zürich.</td><td class="metric">· Nennt Zieljahre und Zwischenziele mit Primärquelle<br>· Strukturiert Massnahmen nach Sektoren<br>· Belegt den Umsetzungsstand mit Monitoring- oder Statistikdaten<br>· Stellt Kritik ausgewogen und belegt dar</td></tr><tr><td class="id">DE-S2</td><td>Strategien<br><span class="secnote">standard · DE, FR<br>web</span></td><td>Welche Digitalstrategien haben Schweizer Kantone seit 2022 veröffentlicht? Vergleiche Basel-Stadt mit drei weiteren Kantonen hinsichtlich Zielen, Governance, Finanzierung und Messgrössen.</td><td class="metric">· Begründete Auswahl der Vergleichskantone<br>· Vergleichstabelle mit Quellen<br>· Hebt Messgrössen bzw. KPIs explizit hervor<br>· Nennt Datum bzw. Version jeder Strategie</td></tr><tr><td class="id">DE-S3</td><td>Strategien<br><span class="secnote">deep · DE, EN, FR<br>web</span></td><td>Wie gehen Schweizer Kantone und europäische Städte mit generativer KI in der Verwaltung um (Richtlinien, Pilotprojekte, Governance, Schulung)? Leite daraus begründete Empfehlungen für Basel-Stadt ab.</td><td class="metric">· Trennt Befunde und Empfehlungen klar<br>· Jede Empfehlung ist auf belegte Beispiele zurückgeführt<br>· Berücksichtigt mindestens drei europäische Beispiele<br>· Nennt Risiken und Voraussetzungen</td></tr><tr><td class="id">DE-ST1</td><td>Statistik<br><span class="secnote">standard · DE<br>mcp:data-bs, web</span></td><td>Wie haben sich Wohnbevölkerung und Leerwohnungsbestand in Basel-Stadt in den letzten zehn Jahren entwickelt, und welche Erklärungen nennen amtliche Publikationen dafür?</td><td class="metric">· Zahlenreihen aus amtlicher Statistik mit Tabellen- bzw. Datensatzverweis<br>· Keine erfundenen Zahlen; Zahlen stimmen mit der Quelle überein<br>· Erklärungen stammen aus amtlichen Publikationen und sind als solche belegt<br>· Weist methodische Brüche aus, falls vorhanden</td></tr></tbody></table></div>
+</section>
+
+<section id="candidates">
+  <h2>Research tracks</h2>
+  <div class="tablewrap"><table><thead><tr><th>Track</th><th>Candidates</th><th>Status</th></tr></thead><tbody>
+<tr><td class="id">T1</td><td>machinelearningZH/deep-research (Kanton Zürich), deep dive. <b>Verdict:</b> fails the web-research MUST gates (no web search, clarifying questions, plan approval, API or Dockerfile). Keep as a reference design for deep research over internal documents: an OWUI pipe for knowledge bases only would take about 6–10 person-days.</td><td><span class="st done">DONE</span></td></tr>
+<tr><td class="id">T2</td><td>Open WebUI native (subagents, automations, MCP, tool servers), community deep-research functions, own build on OWUI extension points. <b>Verdict:</b> no native deep-research mode (closed as "not planned"). The 0.11 building blocks are there: ask_user, sub-agents, timer, automations, events. A seeded workspace model needs no code but is weak on plan approval, depth control and evidence trail. No community function is usable as-is. Our own pipe would take about 30–45 person-days and pass every MUST by design, with quality still to be proven. Runs stop when a pod restarts, and quotas need a filter function.</td><td><span class="st done">DONE</span></td></tr>
+<tr><td class="id">T3</td><td>LangChain open_deep_research · GPT-Researcher · ByteDance DeerFlow · Stanford STORM / Co-STORM. <b>Verdict:</b> GPT-Researcher leads (Apache-2.0, very active, native Serper, SearXNG and Firecrawl, model roles, DOCX/PDF export). The community project open-webui-gpt-researcher (Pipe → gateway → one K8s Job per run) is a possible fork base at about 12–16 person-days. open_deep_research is archived and DeerFlow 2 is heavyweight. STORM is unmaintained.</td><td><span class="st done">DONE</span></td></tr>
+<tr><td class="id">T4</td><td>Local Deep Research · smolagents ODR · dzhng / Firecrawl ODR · Jina node-DeepResearch · Tongyi DeepResearch · MiroFlow / MiroThinker · Onyx · Perplexica · n8n templates · new 2025–26 projects. <b>Verdict:</b> NVIDIA Deep Researcher Agent (found in the scan) fits the platform best. Local Deep Research has the best local-model track record but runs as a single replica only. Onyx's research loop is a good template for an own build. Research-specialised models (MiroThinker-1.7-mini, Tongyi 30B-A3B) are not worth hosting until Gemma's citation accuracy has been measured.</td><td><span class="st done">DONE</span></td></tr>
+<tr><td class="id">T5</td><td>Benchmarks and published scores (DeepResearch Bench, BrowseComp, GAIA …), token and runtime data, benchmark protocol. <b>Finding:</b> ~30B open models reach good report quality (RACE 41–53), but citation accuracy is the weak point, and framework design is the main lever on it. No Gemma-4-31B report scores are published. Proposed protocol: 30 DeepResearch Bench tasks plus 5 in German. Gates: RACE ≥ 43, citation accuracy ≥ 60%, median tokens 200k–1M, standard run ≤ 20 min.</td><td><span class="st done">DONE</span></td></tr>
+</tbody></table></div>
+
+</section>
+
+<section id="tasks">
+  <h2>Task list</h2>
+  <div class="tasks">
+  <div class="phase"><h3>Phase 0–3 · Requirements, desk research, local evaluation</h3><ol>
+<li><span class="st done">DONE</span><span>Interview, requirements spec, decisions; desk research on about 25 projects; benchmark protocol</span></li>
+<li><span class="st done">DONE</span><span>Local stack mirroring production, harness, judges, results viewer; German test set v0.2</span></li>
+<li><span class="st done">DONE</span><span>Calibration, stage 1, analyses, tuning (GPT-Researcher @patched, NVIDIA @lean)</span></li>
+<li><span class="st done">DONE</span><span>Own research-agent from 13 engines' patterns (v1–v3); job service and Open WebUI pipe built</span></li>
+<li><span class="st done">DONE</span><span>Final run (20 DRB tasks, German set, re-judged); final report and reproducible repo</span></li>
+</ol></div>
+<div class="phase"><h3>Phase 4 · Engine work before the pilot</h3><ol>
+<li><span class="st todo">TODO</span><span>Focus engine: bounded tool-calling loop as a research-agent mode for the administrative presets, with evidence records, code-resolved citations and a source list with Stand</span></li>
+<li><span class="st todo">TODO</span><span>Undo v3 sentence dropping; make the number check tolerant; re-test (3 repeats) on the German set and the DRB tuning tasks</span></li>
+<li><span class="st todo">TODO</span><span>MCP citation workflow: cite the source URL the MCP result returns (document, law, Geschäft, dataset), never "MCP" or the server endpoint; keep title, URL and Stand as an evidence record</span></li>
+<li><span class="st todo">TODO</span><span>Add mcp.statistik.bs.ch/mcp and mcp-grosserrat.statistik.bs.ch/mcp to the presets (Statistik, Grosser Rat) with tool allowlists</span></li>
+<li><span class="st todo">TODO</span><span>SG/SR normalisation for Basel-Stadt law</span></li>
+<li><span class="st todo">TODO</span><span>Extend the German test set with Grossrat full-text tasks; domain-expert review</span></li>
+</ol></div>
+<div class="phase"><h3>Phase 4b · Optional improvements to our own MCP servers</h3><ol>
+<li><span class="st todo">OPTIONAL</span><span>Return a stable public source URL, a title and a date or Stand with every result</span></li>
+<li><span class="st todo">OPTIONAL</span><span>Grossrat server: search by topic, Vorstoss type, date range and status; Geschäft with documents, Vorgänge and Regierungsrat answers as full text; Geschäftsnummer lookup</span></li>
+<li><span class="st todo">OPTIONAL</span><span>Statistics server: series search by topic; values with unit, Stichtag, source table and method notes</span></li>
+<li><span class="st todo">OPTIONAL</span><span>data.bs.ch server: stable endpoint, clearer tool descriptions, compact results</span></li>
+<li><span class="st todo">OPTIONAL</span><span>All servers: short tool descriptions written for a 31B model, paginated and size-limited results, health endpoint and monitoring</span></li>
+</ol></div>
+<div class="phase"><h3>Phase 5 · Integration and pilot</h3><ol>
+<li><span class="st todo">TODO</span><span>Test the pipe in a real Open WebUI on the test cluster; decide report delivery (admin service key or fetch on next message)</span></li>
+<li><span class="st todo">TODO</span><span>Helm templates for the job service in ki-app-openweb-ui (Postgres, restricted PSS); seeder entries for the preset models</span></li>
+<li><span class="st todo">TODO</span><span>Night window and quotas (quick focus runs during the day with concurrency 1)</span></li>
+<li><span class="st todo">TODO</span><span>UAT pilot with one group; measure vLLM load and user feedback; go/no-go</span></li>
+<li><span class="st todo">LATER</span><span>Self-host opencaselaw; revisit research-specialised models; sandboxed analysis</span></li>
+</ol></div>
+  </div>
+</section>
+
+<section id="open">
+  <h2>Open questions</h2>
+  <ul class="open">
+  <li>Report delivery after night runs: an Open WebUI admin service key (writes into the chat), or fetching the report on the user's next message?</li>
+<li>Per-user quota, and whether quick focus runs during office hours are acceptable for GPU load (to be measured in the pilot).</li>
+<li>Who reviews the German test set (Recht, Parlamentsdienst, Statistik, Strategie)?</li>
+
+  </ul>
+</section>
+
+<footer>Quality is measured with public benchmarks: DeepResearch Bench RACE for report quality and FACT for citation accuracy, plus agentic-search benchmarks where scores are published. Where a framework only publishes frontier-model results, we reproduce on a subset with Gemma-4-31B.</footer>
+</div>
+
+</body></html>
