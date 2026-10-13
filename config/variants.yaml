@@ -77,6 +77,15 @@ research-agent:
     preset_overrides:
       grossrat: {plan_first: false}
   v6npr2: *v6np
+  # v6 with the deployed data.bs fixes (#7, #8: error reasons reach the model, citable records); DE-ST1 re-test
+  v6st: *v5
+  v6str2: *v5
+  v6str3: *v5
+  # v6 with a shorter report target for the grossrat preset (full-text tasks: fewer claims per report)
+  v7: &v7
+    preset_overrides:
+      grossrat: {budget: {focus_words: 550}}
+  v7r2: *v7
   # v4.1: prompt rules for relative periods ("laufende Legislatur") and implausible source dates (G3 analysis).
   # Tested on DE-G1/G3 3x: no gain (G3 41.9 vs 53.1, G1 58.9 vs 62.2); the rules were removed again.
   v41: {}

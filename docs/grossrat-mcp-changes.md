@@ -80,4 +80,4 @@ which other clients (Open WebUI, ChatGPT connectors) would benefit from too:
 ## 8. Availability (front proxy, not this server)
 
 All bs.ch MCP hosts returned 503 in bursts at the same time (Apache/Airlock front), 37% of health samples during
-a two-hour run on 2026-10-09. Reported as fixed since; `scripts/mcp_health.sh` in the evaluation repo logs it.
+a two-hour run on 2026-10-09. Reported as reduced since (2026-10-13).

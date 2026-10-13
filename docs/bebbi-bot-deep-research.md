@@ -204,17 +204,19 @@ It keeps the citation lead: 38% more supported citations than v2 at the same acc
 
 | German set v0.3 | 13 original tasks | 6 Grossrat full-text tasks | Tokens median (new tasks) |
 |---|---|---|---|
-| **research-agent v5** (3 runs) | 66.6% (65.4 / 65.5 / 69.0) | 75.2% (76.1 / 71.8 / 77.8) | 63k, 3.7 min |
+| **research-agent v7** (2 runs on the new tasks) | as v5 (the change only affects the grossrat preset) | **80.2%** (77.2 / 83.2) | |
+| research-agent v6 (2 runs) | | 76.1% (80.7 / 71.5) | |
+| research-agent v5 (3 runs) | 66.6% (65.4 / 65.5 / 69.0) | 75.2% (76.1 / 71.8 / 77.8) | 63k, 3.7 min |
 | research-agent v4 (3 runs) | 66.0% | | |
-| Agent loop with Grossrat MCP (1 run) | 58.9% | 79.5% | 62k, 2.4 min |
+| Agent loop with Grossrat MCP (3 runs on the new tasks) | 58.9% | 79.4% (79.5 / 75.8 / 82.9) | 62k, 2.4 min |
 
-- On the original 13 tasks v5 equals v4 (within noise). DE-ST1 rose from 50.0 to 62.2 (mean of 3), with the
-  data.bs hint and tool descriptions in place.
-- On the full-text tasks the plain agent loop with the same Grossrat tools is as good as the focus engine
-  (79.5% in one run vs 72–78% over three). These questions name the Geschäfte and dates, so a direct tool loop
-  finds the documents without a plan. The focus engine scores lower on "every claim sourced" there (1.56 vs 2.0
-  of 3). Worth checking before the pilot: whether the plan step or the citation re-pointing costs it on
-  full-text tasks.
+- On the original 13 tasks v5 equals v4 (within noise). DE-ST1 rose from 50.0 (v4) to 62.2 (v5) and 67.8 (v6, with
+  the data.bs fixes deployed on 2026-10-13).
+- On the full-text tasks the focus engine first trailed the agent loop, mainly on "every claim sourced" (1.56 vs
+  1.83). Two causes, both fixed: the citation repair attached citations to unrelated documents when only a year
+  matched (v6), and the reports made more claims than the evidence carried (v7: report target 550 words for the
+  grossrat preset). v7 matches the agent loop (80.2% vs 79.4%, 1.83 vs 1.83). Skipping the plan step did not matter
+  (77.4%).
 
 ## Findings per approach
 
@@ -290,23 +292,28 @@ Observed problems we fixed along the way (details in [docs/analysis/](analysis/)
   now only distinctive numbers decide, code adds citations only from sources the report already cites, and every change
   is logged. Result on DE-G4..G9: v6 76.1% (2 runs), without the plan step 77.4% (2 runs), v5 75.2%, agent loop 79.4%
   (3 runs). All within noise; v6 stays, the plan step stays on.
-- [ ] Remaining gap to the agent loop on full-text tasks (about 3 points): the focus engine writes more claims
-  (30–80 citations per report vs 15–44). Next lever to test: a shorter report target for the grossrat preset
+- [x] Remaining gap to the agent loop on full-text tasks: a shorter report target for the grossrat preset (v7,
+  `focus_words: 550`) closes it: 80.2% (77.2 / 83.2) vs 79.4% for the agent loop, "every claim sourced" 1.83 for
+  both (v6: 76.1%, 1.50). Now the preset default
+- [x] DE-ST1 with the deployed data.bs fixes (2026-10-13): 67.8% over 3 runs (v5 62.2, v4 50.0); `get_records` calls
+  go through, the one remaining error came back with the portal's reason and the model corrected its query
 - [ ] Review of the German reports (project lead) and comparison with Gemini and Perplexity Deep Research (prepared: [comparison/README.md](../comparison/README.md))
 
-### Phase 4b: optional improvements to our own MCP servers (details: [mcp-servers.md](mcp-servers.md))
-- [ ] Shared front proxy: bursts of 503 on all MCP hosts at once; check the backend pool and monitor `/healthz`
-- [x] data.bs.ch: API error messages to the model, dataset URL per result, short list descriptions (merged: #7; export URL encoding: #5). Deploy pending
-- [ ] Statistics server: error messages to the model (merged: #3); get the server working
-- [ ] Return a stable, public source URL, a title and a date or Stand with every result (Geschäft or document URL on grosserrat.bs.ch, dataset page on data.bs.ch, table page on statistik.bs.ch). Grossrat and statistics already do; data.bs.ch with #7
-- [ ] Grossrat server: search by topic, Vorstoss type, date range and status; get a Geschäft with its documents, Vorgänge and Regierungsrat answers as full text; Geschäftsnummer lookup
-- [ ] Statistics server: search series by topic; return values with unit, Stichtag, source table and methodological notes (breaks)
-- [ ] data.bs.ch server: keep the endpoint stable (it moved from `/` to `/mcp` during the evaluation); clearer tool descriptions; compact result formats (fewer tokens per call)
-- [ ] All servers: short, precise tool descriptions written for a 31B model; paginated, size-limited results; health endpoint and monitoring
+### Phase 4b: improvements to our own MCP servers (details: [mcp-servers.md](mcp-servers.md))
+- [x] Shared front proxy: bursts of 503 on all MCP hosts at once (reported reduced on 2026-10-13; the client retries for about 45 s)
+- [x] data.bs.ch: error reasons to the model, citable records (URL, title, Stand), field labels and units, paging,
+  size limits, short tool descriptions; endpoint stable at `/mcp` (#5, #7, #8, deployed)
+- [x] Statistics server: error reasons, values with unit, Stand, source and method notes, tolerant search, size limits,
+  short tool descriptions (#3, #4, deployed)
+- [ ] Statistics server: container egress to statistik.bs.ch (every tool call fails with ConnectError)
+- [x] Grossrat server: search by topic, type, date and status, dossiers with documents and full texts, number lookup
+  (exists); requested changes in [grossrat-mcp-changes.md](grossrat-mcp-changes.md), above all legislature periods
+- [x] All servers: short tool descriptions written for a 31B model, also as overrides in `config/presets.yaml`
+  (`mcp_servers.<name>.tools`), so external servers like opencaselaw get them too
 
 ### Phase 5: integration and pilot
-Deliverable: the repository `bebbi-deep-research` (engine v6, job service on Postgres, Open WebUI pipe and download
-action, Docker image, Helm chart, seeder assets, docs, 119 tests). Local only so far; push it to the team's Git host.
+Deliverable: the repository `bebbi-deep-research` (github.com/DCC-BS/bebbi-deep-research): engine v6, job service on
+Postgres, Open WebUI pipe and download action, Docker image, Helm chart, seeder assets, docs, 119 tests.
 - [x] Test the pipe in a real Open WebUI (local, v0.11.4): day run, night run delivered with the admin key, fallback
   on the next message, error messages, service restart mid-job. Fixed on the way: models invisible to users
   (`access_control: null`), delivered reports hidden behind `output`, background tasks starting research turns,
@@ -315,7 +322,7 @@ action, Docker image, Helm chart, seeder assets, docs, 119 tests). Local only so
   attached to the message for the user; `GET /jobs/{id}/report.docx` for n8n
 - [x] Own sources (requirement A4): files uploaded in the chat (text via Docling) and knowledge bases, checked against
   the user's rights at approval; preset setting `own_sources` and preset "Eigene Dokumente"; verified day and night
-- [x] Upgrade checklist for Open WebUI internals the integration depends on, added to `kdkp-open-web-ui/README.md`
+- [x] Upgrade checklist for Open WebUI internals the integration depends on, in `kdkp-open-web-ui/README.md` (committed)
 - [ ] Repeat the end-to-end test on the test cluster (proxy, NetworkPolicy, real Entra users)
 - [x] Decide report delivery: admin service key (fallback: the report on the next message)
 - [x] Helm chart for the job service (Postgres, restricted PSS, proxy settings) and seeder assets for the preset models,
@@ -331,10 +338,10 @@ action, Docker image, Helm chart, seeder assets, docs, 119 tests). Local only so
 
 ## Next steps
 
-1. Review and merge the MCP pull requests (mcp-data-bs #8, mcp-statistikportal #4) and deploy them; fix the egress of the
-   statistics container, then switch `statistik` on in the presets.
-2. Push `bebbi-deep-research`, build the image in CI, wire the Helm chart and seeder assets into the GitOps repository,
-   and repeat the end-to-end test on the test cluster.
+1. Fix the egress of the statistics MCP container (its tool calls fail with ConnectError), then switch `statistik` on
+   in the presets and re-run DE-ST1. The MCP pull requests are merged and deployed (2026-10-13).
+2. Build the `bebbi-deep-research` image in CI (the repository is on GitHub: DCC-BS/bebbi-deep-research), wire the Helm
+   chart and seeder assets into the GitOps repository, and repeat the end-to-end test on the test cluster.
 3. Domain review of the German test set v0.3 (19 tasks) and the comparison with Gemini and Perplexity Deep Research.
 4. UAT pilot with one user group: night window, quick focus runs during the day; measure vLLM load and feedback.
 
