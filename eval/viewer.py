@@ -15,10 +15,10 @@ from eval.common import RESULTS, ROOT, SEARCH_LOG, load_tasks, read_jsonl
 DRB = ROOT / "vendor" / "deep_research_bench"
 REFERENCE = "reference (Gemini DR)"
 # Shown by default; every other result directory appears under "show all experiments".
-FEATURED = ["research-agent@v4", "research-agent@v5", "research-agent", "baseline-agent@grossrat", "baseline-agent", "nvidia-dra@lean",
+FEATURED = ["research-agent@v7", "research-agent@v5", "research-agent@v4", "research-agent", "baseline-agent@grossrat", "baseline-agent", "nvidia-dra@lean",
             "gpt-researcher@patched", "baseline-nosearch", REFERENCE]
 LABELS = {"research-agent": "research-agent v2", "research-agent@v4": "research-agent v4 (focus)",
-          "research-agent@v5": "research-agent v5 (survey)"}
+          "research-agent@v5": "research-agent v5", "research-agent@v7": "research-agent v7 (grossrat, short)"}
 
 
 def group_of(cand: str) -> tuple[str, str]:
