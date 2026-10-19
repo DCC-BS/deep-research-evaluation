@@ -1,0 +1,264 @@
+{
+ "version": "0.2-draft",
+ "note": "Entwurf. Fragen und Bewertungskriterien müssen von Fachpersonen (Recht, Parlamentsdienst, Statistik, Strategie) geprüft werden. Keine Personendaten. Kriterien beschreiben, was ein guter Bericht enthalten muss, nicht die Antwort.",
+ "rubric_common": [
+  "Beantwortet die Frage vollständig und strukturiert (Zusammenfassung, Hauptteil, offene Punkte)",
+  "Jede Tatsachenbehauptung ist mit einer abrufbaren Quelle belegt; Zitat stützt die Aussage",
+  "Primärquellen (Erlasse, Ratsgeschäfte, amtliche Publikationen) haben Vorrang vor Sekundärquellen",
+  "Stand und Datum der Quellen werden genannt; veraltete oder widersprüchliche Angaben werden markiert",
+  "Schweizer Rechtschreibung (kein ß), sachlicher Verwaltungsstil, verständlich für Nicht-Fachpersonen",
+  "Grenzen und Unsicherheiten der Recherche werden offen ausgewiesen"
+ ],
+ "tasks": [
+  {
+   "id": "DE-R1",
+   "category": "Recht",
+   "depth": "standard",
+   "sources": [
+    "mcp:opencaselaw",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Welche rechtlichen Grundlagen regeln im Kanton Basel-Stadt die Videoüberwachung des öffentlichen Raums durch kantonale Behörden? Stelle die massgebenden Bestimmungen des kantonalen Rechts und des Bundesrechts zusammen und zeige auf, welche Voraussetzungen, Zuständigkeiten und Aufbewahrungsfristen gelten.",
+   "criteria": [
+    "Nennt die einschlägigen kantonalen Erlasse mit Paragraphen und SG-Nummer",
+    "Grenzt kantonales Recht und Bundesrecht korrekt ab",
+    "Nennt Bewilligungs- bzw. Meldeverfahren und zuständige Stellen",
+    "Verweist auf Praxis oder Stellungnahmen der Datenschutzaufsicht, falls vorhanden"
+   ]
+  },
+  {
+   "id": "DE-R2",
+   "category": "Recht",
+   "depth": "deep",
+   "sources": [
+    "mcp:opencaselaw",
+    "web"
+   ],
+   "languages": [
+    "de",
+    "fr",
+    "en"
+   ],
+   "question": "Wie ist der Einsatz von KI-Systemen in der kantonalen Verwaltung rechtlich eingebettet? Vergleiche die Rechtslage in Basel-Stadt mit Zürich, Bern und Genf sowie mit den Vorgaben des Bundes, und ordne ein, wo die EU-KI-Verordnung für Schweizer Behörden relevant ist.",
+   "criteria": [
+    "Unterscheidet geltendes Recht, Entwürfe und Richtlinien",
+    "Deckt mindestens vier Kantone inkl. einer französischsprachigen Quelle ab",
+    "Nennt die relevanten Bestimmungen des Datenschutzrechts zu automatisierten Einzelentscheidungen",
+    "Ordnet die extraterritoriale Wirkung der EU-KI-Verordnung nachvollziehbar ein"
+   ]
+  },
+  {
+   "id": "DE-R3",
+   "category": "Recht",
+   "depth": "standard",
+   "sources": [
+    "mcp:opencaselaw",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Welche Bewilligungen braucht es in Basel-Stadt für eine Photovoltaikanlage auf einem Gebäude in einer Schutz- oder Schonzone, und welche Gesetze, Verordnungen und Merkblätter sind massgebend?",
+   "criteria": [
+    "Unterscheidet bewilligungsfreie, meldepflichtige und bewilligungspflichtige Fälle",
+    "Nennt Bundesrecht (RPG/RPV) und kantonales Bau- und Denkmalschutzrecht",
+    "Verweist auf aktuelle Merkblätter oder Praxishilfen der Verwaltung",
+    "Beschreibt den Ablauf für Gesuchstellende"
+   ]
+  },
+  {
+   "id": "DE-G1",
+   "category": "Grossrat",
+   "depth": "deep",
+   "sources": [
+    "mcp:data-bs",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Welche Vorstösse (Motionen, Anzüge, Interpellationen, Budgetpostulate) zu Hitzeminderung und Stadtklima hat der Grosse Rat Basel-Stadt seit 2020 behandelt? Wie hat der Regierungsrat jeweils geantwortet und was wurde beschlossen?",
+   "criteria": [
+    "Listet Geschäfte mit Geschäftsnummer, Datum und Status",
+    "Fasst die Antworten des Regierungsrats korrekt zusammen",
+    "Unterscheidet überwiesene, abgeschriebene und offene Aufträge",
+    "Erkennt thematische Schwerpunkte und Trends"
+   ]
+  },
+  {
+   "id": "DE-G2",
+   "category": "Grossrat",
+   "depth": "standard",
+   "sources": [
+    "mcp:data-bs",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Zeichne die politische Entwicklung der familienergänzenden Kinderbetreuung im Grossen Rat Basel-Stadt seit 2015 nach: zentrale Geschäfte, Ratschläge, Abstimmungsergebnisse, Volksabstimmungen und Kostenfolgen.",
+   "criteria": [
+    "Chronologie mit Geschäftsnummern und Daten",
+    "Nennt Abstimmungsergebnisse aus Primärquellen",
+    "Weist Kostenfolgen mit Quelle aus",
+    "Verknüpft Ratsgeschäfte mit allfälligen Volksabstimmungen"
+   ]
+  },
+  {
+   "id": "DE-G3",
+   "category": "Grossrat",
+   "depth": "quick",
+   "sources": [
+    "mcp:data-bs",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Welche Geschäfte zur Digitalisierung der Verwaltung hat der Grosse Rat in der laufenden Legislatur behandelt, und welche Aufträge an den Regierungsrat sind noch offen?",
+   "criteria": [
+    "Bestimmt die laufende Legislatur korrekt",
+    "Liste mit Status je Geschäft",
+    "Offene Aufträge mit Frist, sofern publiziert"
+   ]
+  },
+  {
+   "id": "DE-W1",
+   "category": "Web-Inhalte",
+   "depth": "standard",
+   "sources": [
+    "web"
+   ],
+   "languages": [
+    "de",
+    "fr"
+   ],
+   "question": "Wie informieren die Kantone Basel-Stadt, Basel-Landschaft, Zürich und Genf online über die ordentliche Einbürgerung (Voraussetzungen, Ablauf, Gebühren, Sprachnachweis)? Vergleiche Inhalt, Verständlichkeit und Aktualität der Angebote.",
+   "criteria": [
+    "Vergleichstabelle über alle vier Kantone",
+    "Gebühren und Voraussetzungen mit Quelle und Abrufdatum",
+    "Nutzt die französischsprachige Quelle für Genf",
+    "Begründete Beurteilung der Verständlichkeit"
+   ]
+  },
+  {
+   "id": "DE-W2",
+   "category": "Web-Inhalte",
+   "depth": "deep",
+   "sources": [
+    "web"
+   ],
+   "languages": [
+    "de",
+    "fr",
+    "it",
+    "en"
+   ],
+   "question": "Welche Schweizer Städte, Gemeinden und Kantone setzen Chatbots oder KI-Assistenten für Anfragen der Bevölkerung oder der Mitarbeitenden ein? Beschreibe Einsatzbereich, Technologie bzw. Anbieter, Datenschutzhinweise und veröffentlichte Erfahrungen.",
+   "criteria": [
+    "Deckt alle Sprachregionen ab",
+    "Trennt Pilotprojekte und produktive Angebote",
+    "Belegt Anbieter- und Technologieangaben",
+    "Fasst publizierte Erfahrungen oder Evaluationen zusammen"
+   ]
+  },
+  {
+   "id": "DE-W3",
+   "category": "Web-Inhalte",
+   "depth": "quick",
+   "sources": [
+    "web"
+   ],
+   "languages": [
+    "de",
+    "it"
+   ],
+   "question": "Welche Informationen zu Abfallentsorgung und Gebühren finden Einwohnerinnen und Einwohner auf bs.ch, und wie vollständig sind sie im Vergleich zu den Angeboten von Bern und Lugano?",
+   "criteria": [
+    "Strukturierter Vergleich der drei Städte",
+    "Nutzt die italienischsprachige Quelle für Lugano",
+    "Benennt konkrete Lücken mit Verweis auf die Seiten"
+   ]
+  },
+  {
+   "id": "DE-S1",
+   "category": "Strategien",
+   "depth": "deep",
+   "sources": [
+    "web",
+    "mcp:data-bs"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Fasse die Klimaschutzstrategie des Kantons Basel-Stadt zusammen: Ziele, Massnahmenpakete, Zuständigkeiten, bisheriger Umsetzungsstand und publizierte Kritik. Vergleiche sie mit den Strategien von Stadt und Kanton Zürich.",
+   "criteria": [
+    "Nennt Zieljahre und Zwischenziele mit Primärquelle",
+    "Strukturiert Massnahmen nach Sektoren",
+    "Belegt den Umsetzungsstand mit Monitoring- oder Statistikdaten",
+    "Stellt Kritik ausgewogen und belegt dar"
+   ]
+  },
+  {
+   "id": "DE-S2",
+   "category": "Strategien",
+   "depth": "standard",
+   "sources": [
+    "web"
+   ],
+   "languages": [
+    "de",
+    "fr"
+   ],
+   "question": "Welche Digitalstrategien haben Schweizer Kantone seit 2022 veröffentlicht? Vergleiche Basel-Stadt mit drei weiteren Kantonen hinsichtlich Zielen, Governance, Finanzierung und Messgrössen.",
+   "criteria": [
+    "Begründete Auswahl der Vergleichskantone",
+    "Vergleichstabelle mit Quellen",
+    "Hebt Messgrössen bzw. KPIs explizit hervor",
+    "Nennt Datum bzw. Version jeder Strategie"
+   ]
+  },
+  {
+   "id": "DE-S3",
+   "category": "Strategien",
+   "depth": "deep",
+   "sources": [
+    "web"
+   ],
+   "languages": [
+    "de",
+    "en",
+    "fr"
+   ],
+   "question": "Wie gehen Schweizer Kantone und europäische Städte mit generativer KI in der Verwaltung um (Richtlinien, Pilotprojekte, Governance, Schulung)? Leite daraus begründete Empfehlungen für Basel-Stadt ab.",
+   "criteria": [
+    "Trennt Befunde und Empfehlungen klar",
+    "Jede Empfehlung ist auf belegte Beispiele zurückgeführt",
+    "Berücksichtigt mindestens drei europäische Beispiele",
+    "Nennt Risiken und Voraussetzungen"
+   ]
+  },
+  {
+   "id": "DE-ST1",
+   "category": "Statistik",
+   "depth": "standard",
+   "sources": [
+    "mcp:data-bs",
+    "web"
+   ],
+   "languages": [
+    "de"
+   ],
+   "question": "Wie haben sich Wohnbevölkerung und Leerwohnungsbestand in Basel-Stadt in den letzten zehn Jahren entwickelt, und welche Erklärungen nennen amtliche Publikationen dafür?",
+   "criteria": [
+    "Zahlenreihen aus amtlicher Statistik mit Tabellen- bzw. Datensatzverweis",
+    "Keine erfundenen Zahlen; Zahlen stimmen mit der Quelle überein",
+    "Erklärungen stammen aus amtlichen Publikationen und sind als solche belegt",
+    "Weist methodische Brüche aus, falls vorhanden"
+   ]
+  }
+ ]
+}

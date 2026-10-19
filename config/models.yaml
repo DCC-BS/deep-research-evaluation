@@ -1,0 +1,45 @@
+# Role aliases exposed by the metering gateway. Frameworks only see the alias
+# names; the gateway adds the real model name and per-role request fields.
+#
+# Production mapping (Bebbi Bot): Gemma-4-31B with thinking for planning,
+# research and writing; Gemma without thinking (or Qwen3.5-4B) for decisions,
+# routing and summaries. Locally both GPUs hold one Gemma instance, so the
+# "fast" role is Gemma with thinking off instead of Qwen3.5-4B.
+
+backends:
+  gemma:
+    base_url: http://vllm-gemma:8000/v1
+  embed:
+    base_url: http://vllm-embed:8000/v1
+
+aliases:
+  gemma-think:
+    name: gemma-think
+    backend: gemma
+    model: gemma-4-31b
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: true
+  gemma-fast:
+    name: gemma-fast
+    backend: gemma
+    model: gemma-4-31b
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: false
+  qwen-embed:
+    name: qwen-embed
+    backend: embed
+    model: qwen3-embedding
+
+# Search results dropped by the gateway's Serper proxy: the benchmark itself
+# and published reports of other agents on it (answer leakage).
+search_blocklist:
+  - deepresearch-bench.github.io
+  - github.com/Ayanami0730
+  - huggingface.co/spaces/Ayanami0730
+  - huggingface.co/spaces/muset-ai
+  - huggingface.co/datasets/muset-ai
+  - arxiv.org/abs/2506.11763
+  - arxiv.org/pdf/2506.11763
+  - agi-eval.cn

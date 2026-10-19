@@ -1,0 +1,179 @@
+# Local evaluation stack, close to Bebbi Bot production:
+#   llm    -> vLLM (Gemma-4-31B NVFP4, TP=2 over both RTX 4090) + embeddings + metering gateway
+#   search -> self-hosted Firecrawl with the production image versions
+# Candidates (GPT-Researcher, NVIDIA Deep Researcher) live in candidates/*/compose.yaml
+# and join the "eval" network.
+#
+#   docker compose --profile llm --profile search up -d
+
+name: dr-eval
+
+x-hf-cache: &hf-cache
+  - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+
+services:
+  vllm-gemma:
+    profiles: [llm]
+    image: vllm/vllm-openai:v0.30.0
+    ipc: host
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HUB_OFFLINE: "1"
+    volumes: *hf-cache
+    command:
+      - RedHatAI/gemma-4-31B-it-NVFP4
+      - --served-model-name=gemma-4-31b
+      - --tensor-parallel-size=2
+      # GPU 1 also hosts a faster-whisper container (~2.4 GiB) and GPU 0 the
+      # embedding model (10%). 0.82 left too little headroom: long prefills
+      # OOMed on GPU 0 once the embedding server was up.
+      - --gpu-memory-utilization=0.80
+      - --max-model-len=131072
+      - --max-num-seqs=8
+      - --enable-prefix-caching
+      - --reasoning-parser=gemma4
+      - --tool-call-parser=gemma4
+      - --enable-auto-tool-choice
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0", "1"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 80
+      start_period: 120s
+    networks: [eval]
+
+  vllm-embed:
+    profiles: [llm]
+    image: vllm/vllm-openai:v0.30.0
+    ipc: host
+    environment:
+      HF_HUB_OFFLINE: "1"
+    volumes: *hf-cache
+    # Production uses Qwen3-Embedding-4B; 0.6B fits next to Gemma here.
+    command:
+      - Qwen/Qwen3-Embedding-0.6B
+      - --served-model-name=qwen3-embedding
+      - --runner=pooling
+      - --gpu-memory-utilization=0.10
+      - --max-model-len=2048
+      - --enforce-eager
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    depends_on:
+      vllm-gemma:
+        condition: service_healthy
+    networks: [eval]
+
+  meter:
+    profiles: [llm]
+    build: ./gateway
+    environment:
+      METER_API_KEY: ${METER_API_KEY}
+      METER_CONFIG: /config/models.yaml
+      METER_LOG: /logs/usage.jsonl
+      SEARCH_LOG: /logs/search.jsonl
+      SERPER_API_KEY: ${SERPER_API_KEY}
+      FIRECRAWL_URL: http://firecrawl-api:3002
+    volumes:
+      - ./config:/config:ro
+      - ./logs:/logs
+    ports:
+      - "127.0.0.1:4000:4000"
+    networks: [eval]
+
+  # --- Firecrawl (versions pinned to ki-app-openweb-ui/values.yaml) ---------
+  firecrawl-api:
+    profiles: [search]
+    image: ghcr.io/firecrawl/firecrawl:2.11.408
+    command: node dist/src/harness.js --start-docker
+    ulimits:
+      nofile: {soft: 65535, hard: 65535}
+    environment: &firecrawl-env
+      HOST: "0.0.0.0"
+      PORT: "3002"
+      EXTRACT_WORKER_PORT: "3004"
+      WORKER_PORT: "3005"
+      ENV: local
+      REDIS_URL: redis://firecrawl-redis:6379
+      REDIS_RATE_LIMIT_URL: redis://firecrawl-redis:6379
+      PLAYWRIGHT_MICROSERVICE_URL: http://firecrawl-playwright:3000/scrape
+      NUQ_RABBITMQ_URL: amqp://firecrawl-rabbitmq:5672
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${FIRECRAWL_POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: firecrawl-nuq-postgres
+      POSTGRES_PORT: "5432"
+      USE_DB_AUTHENTICATION: "false"
+      NUM_WORKERS_PER_QUEUE: "8"
+      CRAWL_CONCURRENT_REQUESTS: "10"
+      MAX_CONCURRENT_JOBS: "5"
+      BROWSER_POOL_SIZE: "5"
+      HARNESS_STARTUP_TIMEOUT_MS: "120000"
+      LOGGING_LEVEL: INFO
+    depends_on:
+      firecrawl-redis: {condition: service_started}
+      firecrawl-playwright: {condition: service_started}
+      firecrawl-rabbitmq: {condition: service_healthy}
+      firecrawl-nuq-postgres: {condition: service_healthy}
+    ports:
+      - "127.0.0.1:3002:3002"
+    networks: [eval]
+
+  firecrawl-playwright:
+    profiles: [search]
+    image: ghcr.io/firecrawl/playwright-service:latest@sha256:df1a393ce8bfc3801570a826a9b0dcc400ae48789adb4a0ad9d6cbf0229b059b
+    environment:
+      PORT: "3000"
+      MAX_CONCURRENT_PAGES: "10"
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp/.cache:noexec,nosuid,size=1g
+    networks: [eval]
+
+  firecrawl-redis:
+    profiles: [search]
+    image: redis:8.10-alpine
+    command: redis-server --bind 0.0.0.0
+    networks: [eval]
+
+  firecrawl-rabbitmq:
+    profiles: [search]
+    image: rabbitmq:4.3.6-management-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [eval]
+
+  firecrawl-nuq-postgres:
+    profiles: [search]
+    image: ghcr.io/firecrawl/nuq-postgres:latest@sha256:9b638af78d99873bc0ba2b57c9cbcd01df6ce96efeaa72d36cfbe0f76521e8fc
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${FIRECRAWL_POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [eval]
+
+networks:
+  eval:
+    name: dr-eval
