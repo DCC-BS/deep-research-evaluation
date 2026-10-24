@@ -96,7 +96,7 @@ services:
   # --- Firecrawl (versions pinned to ki-app-openweb-ui/values.yaml) ---------
   firecrawl-api:
     profiles: [search]
-    image: ghcr.io/firecrawl/firecrawl:2.11.408
+    image: ghcr.io/firecrawl/firecrawl:2.11.605
     command: node dist/src/harness.js --start-docker
     ulimits:
       nofile: {soft: 65535, hard: 65535}
