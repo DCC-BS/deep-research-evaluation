@@ -14,7 +14,7 @@ x-hf-cache: &hf-cache
 services:
   vllm-gemma:
     profiles: [llm]
-    image: vllm/vllm-openai:v0.30.0
+    image: vllm/vllm-openai:v0.32.0
     ipc: host
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
@@ -51,7 +51,7 @@ services:
 
   vllm-embed:
     profiles: [llm]
-    image: vllm/vllm-openai:v0.30.0
+    image: vllm/vllm-openai:v0.32.0
     ipc: host
     environment:
       HF_HUB_OFFLINE: "1"
