@@ -150,7 +150,7 @@ services:
 
   firecrawl-rabbitmq:
     profiles: [search]
-    image: rabbitmq:4.3.6-management-alpine
+    image: rabbitmq:4.4.0-management-alpine
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 5s
