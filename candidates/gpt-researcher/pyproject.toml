@@ -11,7 +11,4 @@ dependencies = [
 [tool.uv]
 # Supply-chain cooldown: uv only uses distributions uploaded at least 7 days ago.
 exclude-newer = "P7D"
-# TEMPORARY until 2026-10-29: brotli 1.2.1 / brotlicffi 1.2.1.0 fix CVE-2026-111497 (Brotli decoder) and skip the cooldown (P0D).
-# The weekly dependency routine removes these entries once the locked versions are 7 days old.
-exclude-newer-package = { brotli = "P0D", brotlicffi = "P0D" }
 package = false
