@@ -133,7 +133,7 @@ services:
 
   firecrawl-playwright:
     profiles: [search]
-    image: ghcr.io/firecrawl/playwright-service:latest@sha256:df1a393ce8bfc3801570a826a9b0dcc400ae48789adb4a0ad9d6cbf0229b059b
+    image: ghcr.io/firecrawl/playwright-service:latest@sha256:eacaf2c256a6ff7fd1869e470d2969e97a037ff6c75ac01d38784d138a33f8eb
     environment:
       PORT: "3000"
       MAX_CONCURRENT_PAGES: "10"
