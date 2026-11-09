@@ -1,7 +1,7 @@
 [project]
 name = "gptr-candidate"
 version = "0.1.0"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.15,<3.16"
 dependencies = [
     "gpt-researcher @ git+https://github.com/assafelovic/gpt-researcher@v3.7.0",
     "firecrawl-py>=4.0",

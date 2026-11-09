@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 RUN pip install --no-cache-dir fastapi==0.118.0 "uvicorn[standard]==0.37.0" httpx==0.28.1 pyyaml==6.0.3
 WORKDIR /app
 COPY app.py .
